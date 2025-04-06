@@ -1,5 +1,6 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import './styles/animations.css';
 
 @tailwind base;
 @tailwind components;
@@ -40,32 +41,38 @@
 
   * {
     @apply border-border;
+    scroll-behavior: smooth;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
+    font-feature-settings: "ss01", "ss02", "cv01", "cv02", "cv03";
   }
 
   h1, h2, h3, h4, h5, h6 {
     @apply font-grotesk font-medium tracking-tight;
   }
+  
+  input, select, textarea {
+    @apply transition-all duration-200;
+  }
 }
 
 @layer components {
   .glass {
-    @apply bg-white/70 backdrop-blur-md border border-white/20 rounded-xl;
+    @apply bg-white/70 backdrop-blur-md border border-white/20 rounded-xl shadow-lg;
   }
   
   .glass-dark {
-    @apply bg-nuvos-blue/70 backdrop-blur-md border border-white/10 rounded-xl;
+    @apply bg-nuvos-blue/70 backdrop-blur-md border border-white/10 rounded-xl shadow-lg;
   }
   
   .menu-item {
-    @apply px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 flex items-center gap-2 rounded-md transition-colors;
+    @apply px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 flex items-center gap-2 rounded-md transition-colors duration-200;
   }
   
   .btn-primary {
-    @apply bg-nuvos-teal text-white px-4 py-2 rounded-lg font-medium hover:bg-opacity-90 transition-all;
+    @apply bg-nuvos-teal text-white px-4 py-2 rounded-lg font-medium hover:bg-opacity-90 transition-all shadow-md;
   }
   
   .btn-secondary {
@@ -77,7 +84,7 @@
   }
   
   .card {
-    @apply bg-white rounded-xl border border-gray-100 p-5 shadow-card hover:shadow-card-hover transition-shadow duration-200;
+    @apply bg-white rounded-xl border border-gray-100 p-5 shadow-card hover:shadow-card-hover transition-all duration-200;
   }
   
   .mega-menu {
@@ -86,5 +93,36 @@
   
   .mega-menu.active {
     @apply opacity-100 visible;
+  }
+}
+
+/* Advanced selectors for subtle details */
+@layer utilities {
+  /* Improved focus states */
+  .focus-ring {
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-nuvos-teal focus-visible:ring-offset-2 focus-visible:ring-offset-white;
+  }
+  
+  /* Typography enhancements */
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  /* Header underline animation */
+  .animated-underline {
+    @apply relative;
+  }
+  
+  .animated-underline::after {
+    @apply content-[''] absolute left-0 bottom-0 w-0 h-0.5 bg-nuvos-teal transition-all duration-300 ease-in-out;
+  }
+  
+  .animated-underline:hover::after {
+    @apply w-full;
+  }
+  
+  /* Improved transitions */
+  .transition-transform-slow {
+    @apply transition-transform duration-500 ease-in-out;
   }
 }

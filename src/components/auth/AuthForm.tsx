@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { UserRole } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { AlertCircle, Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface AuthFormProps {
   type: "login" | "signup" | "forgot-password" | "reset-password";
@@ -22,6 +24,7 @@ const AuthForm = ({ type }: AuthFormProps) => {
   const [name, setName] = useState("");
   const [role, setRole] = useState<UserRole>("Investor");
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const navigate = useNavigate();
   
   const { signIn, signUp, signInWithGoogle, forgotPassword, resetPassword } = useAuth();
@@ -29,55 +32,61 @@ const AuthForm = ({ type }: AuthFormProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMsg("");
     
     try {
       if (type === "login") {
         const { error } = await signIn(email, password);
         if (error) {
-          toast.error(error.message);
+          setErrorMsg(error.message);
         }
       } else if (type === "signup") {
         if (password !== confirmPassword) {
-          toast.error("Passwords do not match");
+          setErrorMsg("Passwords do not match");
           setLoading(false);
           return;
         }
         
         const { error } = await signUp(email, password, name, role);
         if (error) {
-          toast.error(error.message);
+          setErrorMsg(error.message);
         }
       } else if (type === "forgot-password") {
         const { error } = await forgotPassword(email);
         if (error) {
-          toast.error(error.message);
+          setErrorMsg(error.message);
         }
       } else if (type === "reset-password") {
         if (password !== confirmPassword) {
-          toast.error("Passwords do not match");
+          setErrorMsg("Passwords do not match");
           setLoading(false);
           return;
         }
         
         const { error } = await resetPassword(password);
         if (error) {
-          toast.error(error.message);
+          setErrorMsg(error.message);
         }
       }
     } catch (error) {
       console.error("Authentication error:", error);
-      toast.error("An unexpected error occurred");
+      setErrorMsg("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setErrorMsg("");
+    
     try {
       await signInWithGoogle();
     } catch (error) {
       console.error("Google sign in error:", error);
-      toast.error("Failed to sign in with Google");
+      setErrorMsg("Failed to sign in with Google. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -95,6 +104,8 @@ const AuthForm = ({ type }: AuthFormProps) => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="john.doe@example.com"
+                disabled={loading}
+                className="h-11"
                 required
               />
             </div>
@@ -111,44 +122,51 @@ const AuthForm = ({ type }: AuthFormProps) => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
+                disabled={loading}
+                className="h-11"
                 required
               />
             </div>
           </div>
           
+          {errorMsg && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              <p>{errorMsg}</p>
+            </div>
+          )}
+          
           <div className="flex flex-col mt-6">
             <Button
               type="submit"
-              className="w-full bg-nuvos-teal hover:bg-nuvos-teal/90"
+              className="w-full bg-nuvos-teal hover:bg-nuvos-teal/90 h-12"
               disabled={loading}
             >
               {loading ? (
                 <span className="flex items-center gap-2">
-                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Logging in...
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Signing in...
                 </span>
               ) : (
-                "Log in"
+                "Sign in"
               )}
             </Button>
             
-            <div className="relative my-4">
+            <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t border-gray-300"></span>
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-gray-500">Or continue with</span>
+                <span className="bg-white px-3 text-gray-500">Or continue with</span>
               </div>
             </div>
             
             <Button
               type="button"
               variant="outline"
-              className="w-full"
+              className="w-full h-12 border-gray-300 hover:bg-gray-50"
               onClick={handleGoogleSignIn}
+              disabled={loading}
             >
               <svg 
                 viewBox="0 0 24 24" 
@@ -176,7 +194,7 @@ const AuthForm = ({ type }: AuthFormProps) => {
             </Button>
           </div>
           
-          <div className="mt-6 text-center text-sm">
+          <div className="mt-8 text-center text-sm">
             Don't have an account?{" "}
             <Link to="/signup" className="text-nuvos-teal hover:underline font-medium">
               Sign up
@@ -189,13 +207,15 @@ const AuthForm = ({ type }: AuthFormProps) => {
         <>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">Full Name</Label>
               <Input
                 id="name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="John Doe"
+                disabled={loading}
+                className="h-11"
                 required
               />
             </div>
@@ -207,6 +227,8 @@ const AuthForm = ({ type }: AuthFormProps) => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="john.doe@example.com"
+                disabled={loading}
+                className="h-11"
                 required
               />
             </div>
@@ -215,8 +237,9 @@ const AuthForm = ({ type }: AuthFormProps) => {
               <Select
                 value={role}
                 onValueChange={(value) => setRole(value as UserRole)}
+                disabled={loading}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue placeholder="Select your role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -234,6 +257,8 @@ const AuthForm = ({ type }: AuthFormProps) => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
+                disabled={loading}
+                className="h-11"
                 required
               />
             </div>
@@ -245,23 +270,29 @@ const AuthForm = ({ type }: AuthFormProps) => {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
+                disabled={loading}
+                className="h-11"
                 required
               />
             </div>
           </div>
           
+          {errorMsg && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              <p>{errorMsg}</p>
+            </div>
+          )}
+          
           <div className="flex flex-col mt-6">
             <Button
               type="submit"
-              className="w-full bg-nuvos-teal hover:bg-nuvos-teal/90"
+              className="w-full bg-nuvos-teal hover:bg-nuvos-teal/90 h-12"
               disabled={loading}
             >
               {loading ? (
                 <span className="flex items-center gap-2">
-                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Creating account...
                 </span>
               ) : (
@@ -269,20 +300,21 @@ const AuthForm = ({ type }: AuthFormProps) => {
               )}
             </Button>
             
-            <div className="relative my-4">
+            <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t border-gray-300"></span>
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-gray-500">Or continue with</span>
+                <span className="bg-white px-3 text-gray-500">Or continue with</span>
               </div>
             </div>
             
             <Button
               type="button"
               variant="outline"
-              className="w-full"
+              className="w-full h-12 border-gray-300 hover:bg-gray-50"
               onClick={handleGoogleSignIn}
+              disabled={loading}
             >
               <svg 
                 viewBox="0 0 24 24" 
@@ -310,10 +342,10 @@ const AuthForm = ({ type }: AuthFormProps) => {
             </Button>
           </div>
           
-          <div className="mt-6 text-center text-sm">
+          <div className="mt-8 text-center text-sm">
             Already have an account?{" "}
             <Link to="/login" className="text-nuvos-teal hover:underline font-medium">
-              Log in
+              Sign in
             </Link>
           </div>
         </>
@@ -330,23 +362,29 @@ const AuthForm = ({ type }: AuthFormProps) => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="john.doe@example.com"
+                disabled={loading}
+                className="h-11"
                 required
               />
             </div>
           </div>
           
+          {errorMsg && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              <p>{errorMsg}</p>
+            </div>
+          )}
+          
           <div className="flex flex-col mt-6">
             <Button
               type="submit"
-              className="w-full bg-nuvos-teal hover:bg-nuvos-teal/90"
+              className="w-full bg-nuvos-teal hover:bg-nuvos-teal/90 h-12"
               disabled={loading}
             >
               {loading ? (
                 <span className="flex items-center gap-2">
-                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Sending email...
                 </span>
               ) : (
@@ -355,7 +393,7 @@ const AuthForm = ({ type }: AuthFormProps) => {
             </Button>
           </div>
           
-          <div className="mt-6 text-center text-sm">
+          <div className="mt-8 text-center text-sm">
             Remember your password?{" "}
             <Link to="/login" className="text-nuvos-teal hover:underline font-medium">
               Back to login
@@ -375,6 +413,8 @@ const AuthForm = ({ type }: AuthFormProps) => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
+                disabled={loading}
+                className="h-11"
                 required
               />
             </div>
@@ -386,23 +426,29 @@ const AuthForm = ({ type }: AuthFormProps) => {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
+                disabled={loading}
+                className="h-11"
                 required
               />
             </div>
           </div>
           
+          {errorMsg && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              <p>{errorMsg}</p>
+            </div>
+          )}
+          
           <div className="flex flex-col mt-6">
             <Button
               type="submit"
-              className="w-full bg-nuvos-teal hover:bg-nuvos-teal/90"
+              className="w-full bg-nuvos-teal hover:bg-nuvos-teal/90 h-12"
               disabled={loading}
             >
               {loading ? (
                 <span className="flex items-center gap-2">
-                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Updating password...
                 </span>
               ) : (
@@ -418,30 +464,36 @@ const AuthForm = ({ type }: AuthFormProps) => {
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle className="text-2xl font-bold">
-          {type === "login" ? "Welcome back" : 
-           type === "signup" ? "Create your account" :
-           type === "forgot-password" ? "Reset your password" :
-           "Set new password"}
-        </CardTitle>
-        <CardDescription>
-          {type === "login" 
-            ? "Enter your email below to login to your account" 
-            : type === "signup"
-            ? "Enter your information to create an account"
-            : type === "forgot-password"
-            ? "We'll send you a link to reset your password"
-            : "Enter your new password below"}
-        </CardDescription>
-      </CardHeader>
-      <form onSubmit={handleSubmit}>
-        <CardContent>
-          {renderForm()}
-        </CardContent>
-      </form>
-    </Card>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+    >
+      <Card className="w-full max-w-md mx-auto border border-gray-100 shadow-lg">
+        <CardHeader className="pb-6">
+          <CardTitle className="text-2xl font-bold text-nuvos-blue">
+            {type === "login" ? "Welcome back" : 
+             type === "signup" ? "Create your account" :
+             type === "forgot-password" ? "Reset your password" :
+             "Set new password"}
+          </CardTitle>
+          <CardDescription className="text-gray-600">
+            {type === "login" 
+              ? "Enter your email below to login to your account" 
+              : type === "signup"
+              ? "Enter your information to create an account"
+              : type === "forgot-password"
+              ? "We'll send you a link to reset your password"
+              : "Enter your new password below"}
+          </CardDescription>
+        </CardHeader>
+        <form onSubmit={handleSubmit}>
+          <CardContent className="pb-6">
+            {renderForm()}
+          </CardContent>
+        </form>
+      </Card>
+    </motion.div>
   );
 };
 

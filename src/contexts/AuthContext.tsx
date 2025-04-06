@@ -38,6 +38,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         fetchProfile(session.user.id);
       }
       setLoading(false);
+    }).catch(error => {
+      console.error("Error fetching session:", error);
+      setLoading(false);
     });
 
     // Listen for auth state changes
@@ -80,14 +83,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Sign in with email and password
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      
       if (!error) {
         navigate('/dashboard');
         toast.success('Signed in successfully');
+      } else {
+        // Handle specific error cases
+        if (error.message === 'Invalid login credentials') {
+          toast.error('Invalid email or password. Please check your credentials and try again.');
+        } else if (error.message.includes('network')) {
+          toast.error('Network error. Please check your internet connection and try again.');
+        } else {
+          toast.error(`Authentication error: ${error.message}`);
+        }
       }
+      
       return { error };
     } catch (error) {
       console.error('Sign in error:', error);
+      toast.error('An unexpected error occurred. Please try again later.');
       return { error: error as AuthError };
     }
   };
@@ -106,7 +121,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       });
       
-      if (error) return { error };
+      if (error) {
+        // Handle specific error cases
+        if (error.message.includes('email')) {
+          toast.error('Invalid email address or this email is already in use.');
+        } else if (error.message.includes('password')) {
+          toast.error('Password must be at least 8 characters long.');
+        } else {
+          toast.error(`Sign up error: ${error.message}`);
+        }
+        return { error };
+      }
       
       if (data.user) {
         // Create user profile in database
@@ -121,6 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
         if (profileError) {
           console.error('Error creating user profile:', profileError);
+          toast.error(`Error creating user profile: ${profileError.message}`);
           return { error: profileError };
         }
         
@@ -131,6 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: null };
     } catch (error) {
       console.error('Sign up error:', error);
+      toast.error('An unexpected error occurred. Please try again later.');
       return { error: error as AuthError };
     }
   };
@@ -145,10 +172,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       });
       
-      if (error) throw error;
+      if (error) {
+        toast.error(`Google sign-in error: ${error.message}`);
+        throw error;
+      }
     } catch (error) {
       console.error('Google sign in error:', error);
-      toast.error('Failed to sign in with Google');
+      toast.error('Failed to sign in with Google. Please try again later.');
     }
   };
 
@@ -173,11 +203,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (!error) {
         toast.success('Password reset link sent to your email');
+      } else {
+        toast.error(`Error sending reset link: ${error.message}`);
       }
       
       return { error };
     } catch (error) {
       console.error('Forgot password error:', error);
+      toast.error('An unexpected error occurred. Please try again later.');
       return { error: error as AuthError };
     }
   };
@@ -192,11 +225,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!error) {
         toast.success('Password updated successfully');
         navigate('/login');
+      } else {
+        toast.error(`Error resetting password: ${error.message}`);
       }
       
       return { error };
     } catch (error) {
       console.error('Reset password error:', error);
+      toast.error('An unexpected error occurred. Please try again later.');
       return { error: error as AuthError };
     }
   };
