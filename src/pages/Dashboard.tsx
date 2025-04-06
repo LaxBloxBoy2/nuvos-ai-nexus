@@ -1,363 +1,400 @@
 
-import { BarChart3, Building2, LineChart, TrendingUp, PlusCircle, ArrowUpRight } from "lucide-react";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect } from "react";
+import { Link } from "react-router-dom";
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardHeader, 
+  CardTitle 
+} from "@/components/ui/card";
+import { 
+  Building, 
+  BarChart3, 
+  Users, 
+  FileText, 
+  PlusCircle,
+  Clock,
+  Calendar,
+  CheckCircle2,
+  AlertCircle,
+  MapPin
+} from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { BarChart } from "@/components/ui/chart";
+import { useAuth } from "@/contexts/AuthContext";
+import { useData } from "@/contexts/DataContext";
+import { CartesianGrid, LineChart as RechartsLineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart as RechartsBarChart, Bar } from "recharts";
 
 const Dashboard = () => {
-  // Sample data for charts
-  const chartData = [
-    {
-      name: "Jan",
-      Office: 4000,
-      Retail: 2400,
-      Multifamily: 3200,
-      Industrial: 5800,
-    },
-    {
-      name: "Feb",
-      Office: 3500,
-      Retail: 2100,
-      Multifamily: 3400,
-      Industrial: 6200,
-    },
-    {
-      name: "Mar",
-      Office: 4200,
-      Retail: 2300,
-      Multifamily: 3800,
-      Industrial: 6800,
-    },
-    {
-      name: "Apr",
-      Office: 3800,
-      Retail: 2500,
-      Multifamily: 4100,
-      Industrial: 7200,
-    },
-    {
-      name: "May",
-      Office: 3600,
-      Retail: 2800,
-      Multifamily: 4500,
-      Industrial: 7500,
-    },
-    {
-      name: "Jun",
-      Office: 3900,
-      Retail: 3000,
-      Multifamily: 4700,
-      Industrial: 7800,
-    },
-  ];
+  const { user, profile } = useAuth();
+  const { deals, properties, tasks, loadingDeals, loadingProperties, loadingTasks, refreshData } = useData();
+  
+  useEffect(() => {
+    refreshData();
+  }, []);
 
-  // Recent activity data
-  const recentActivity = [
-    {
-      id: 1,
-      action: "New deal added",
-      property: "123 Main Street Office Building",
-      time: "2 hours ago",
-      status: "New",
-    },
-    {
-      id: 2,
-      action: "Valuation updated",
-      property: "Riverside Apartments",
-      time: "5 hours ago",
-      status: "Updated",
-    },
-    {
-      id: 3,
-      action: "New comment",
-      property: "Downtown Retail Center",
-      time: "1 day ago",
-      status: "Activity",
-    },
-    {
-      id: 4,
-      action: "Deal stage changed",
-      property: "West Side Industrial Park",
-      time: "2 days ago",
-      status: "Updated",
-    },
+  // Count deals by status
+  const dealsByStatus = deals.reduce((acc: Record<string, number>, deal) => {
+    acc[deal.status] = (acc[deal.status] || 0) + 1;
+    return acc;
+  }, {});
+  
+  const dealsData = [
+    { name: 'Screening', count: dealsByStatus['Screening'] || 0 },
+    { name: 'Due Diligence', count: dealsByStatus['Due Diligence'] || 0 },
+    { name: 'Negotiation', count: dealsByStatus['Negotiation'] || 0 },
+    { name: 'Closing', count: dealsByStatus['Closing'] || 0 },
+    { name: 'Closed', count: dealsByStatus['Closed'] || 0 },
   ];
+  
+  // Get property types distribution
+  const propertyTypeCount = properties.reduce((acc: Record<string, number>, property) => {
+    acc[property.property_type] = (acc[property.property_type] || 0) + 1;
+    return acc;
+  }, {});
+  
+  const propertyData = Object.keys(propertyTypeCount).map(type => ({
+    name: type,
+    count: propertyTypeCount[type]
+  }));
+  
+  // Performance data (mock for now, would be replaced with actual data)
+  const performanceData = [
+    { month: 'Jan', value: 12 },
+    { month: 'Feb', value: 19 },
+    { month: 'Mar', value: 15 },
+    { month: 'Apr', value: 25 },
+    { month: 'May', value: 32 },
+    { month: 'Jun', value: 28 },
+    { month: 'Jul', value: 35 },
+  ];
+  
+  // Get upcoming tasks
+  const upcomingTasks = tasks
+    .filter(task => task.status !== 'Completed')
+    .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+    .slice(0, 5);
+    
+  // Get recent deals
+  const recentDeals = [...deals]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 5);
+  
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase();
+  };
+  
+  const getPropertyTypeColor = (type: string) => {
+    switch (type) {
+      case "Multifamily":
+        return "bg-blue-100 text-blue-800";
+      case "Industrial":
+        return "bg-purple-100 text-purple-800";
+      case "Office":
+        return "bg-amber-100 text-amber-800";
+      case "Retail":
+        return "bg-emerald-100 text-emerald-800";
+      case "Medical Office":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+  
+  const getPriorityStyles = (priority?: string) => {
+    switch (priority) {
+      case "High":
+        return "w-2 h-2 bg-red-500 rounded-full";
+      case "Medium":
+        return "w-2 h-2 bg-amber-500 rounded-full";
+      case "Low":
+        return "w-2 h-2 bg-green-500 rounded-full";
+      default:
+        return "w-2 h-2 bg-gray-300 rounded-full";
+    }
+  };
+  
+  const getTaskStatusColor = (status: string) => {
+    switch (status) {
+      case "Not Started":
+        return "bg-gray-100 text-gray-800";
+      case "In Progress":
+        return "bg-blue-100 text-blue-800";
+      case "Completed":
+        return "bg-green-100 text-green-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
 
   return (
-    <div className="p-6 md:p-8">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-gray-500">Welcome back! Here's an overview of your CRE portfolio.</p>
-        </div>
-        <div className="mt-4 md:mt-0 flex flex-col sm:flex-row gap-3">
-          <Button variant="outline" className="flex items-center gap-1">
-            <PlusCircle size={16} />
-            New Deal
-          </Button>
-          <Button className="bg-nuvos-teal hover:bg-nuvos-teal/90 flex items-center gap-1">
-            <PlusCircle size={16} />
-            Create Model
-          </Button>
-        </div>
-      </div>
+    <div className="p-6 md:p-10 max-w-7xl mx-auto">
+      <header className="mb-10">
+        <h1 className="text-3xl font-bold">Welcome, {profile?.name || 'Investor'}</h1>
+        <p className="text-gray-500">Here's an overview of your real estate portfolio and active deals</p>
+      </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Active Deals</CardDescription>
-            <CardTitle className="text-2xl flex items-center justify-between">
-              23
-              <Building2 className="text-nuvos-teal" size={20} />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-2">
-            <div className="flex items-center text-xs text-green-500 font-medium">
-              <TrendingUp size={14} className="mr-1" />
-              <span>7% increase</span>
+          <CardContent className="p-6">
+            <div className="flex justify-between items-start">
+              <div className="space-y-1">
+                <p className="text-sm text-gray-500">Active Deals</p>
+                <p className="text-3xl font-bold">
+                  {loadingDeals ? (
+                    <span className="w-8 h-6 bg-gray-200 animate-pulse inline-block"></span>
+                  ) : (
+                    deals.filter(d => d.status !== 'Closed' && d.status !== 'Dead').length
+                  )}
+                </p>
+              </div>
+              <div className="p-2 bg-blue-100 rounded-full text-nuvos-blue">
+                <Building size={20} />
+              </div>
             </div>
           </CardContent>
-          <CardFooter className="pt-0">
-            <p className="text-xs text-gray-500">Compared to last month</p>
-          </CardFooter>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Average Cap Rate</CardDescription>
-            <CardTitle className="text-2xl flex items-center justify-between">
-              5.8%
-              <LineChart className="text-nuvos-purple" size={20} />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-2">
-            <div className="flex items-center text-xs text-green-500 font-medium">
-              <TrendingUp size={14} className="mr-1" />
-              <span>0.2% improvement</span>
+          <CardContent className="p-6">
+            <div className="flex justify-between items-start">
+              <div className="space-y-1">
+                <p className="text-sm text-gray-500">Properties</p>
+                <p className="text-3xl font-bold">
+                  {loadingProperties ? (
+                    <span className="w-8 h-6 bg-gray-200 animate-pulse inline-block"></span>
+                  ) : (
+                    properties.length
+                  )}
+                </p>
+              </div>
+              <div className="p-2 bg-teal-100 rounded-full text-nuvos-teal">
+                <BarChart3 size={20} />
+              </div>
             </div>
           </CardContent>
-          <CardFooter className="pt-0">
-            <p className="text-xs text-gray-500">Across all properties</p>
-          </CardFooter>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Total Portfolio Value</CardDescription>
-            <CardTitle className="text-2xl flex items-center justify-between">
-              $438.2M
-              <BarChart3 className="text-nuvos-teal" size={20} />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-2">
-            <div className="flex items-center text-xs text-green-500 font-medium">
-              <TrendingUp size={14} className="mr-1" />
-              <span>4.3% increase</span>
+          <CardContent className="p-6">
+            <div className="flex justify-between items-start">
+              <div className="space-y-1">
+                <p className="text-sm text-gray-500">Open Tasks</p>
+                <p className="text-3xl font-bold">
+                  {loadingTasks ? (
+                    <span className="w-8 h-6 bg-gray-200 animate-pulse inline-block"></span>
+                  ) : (
+                    tasks.filter(t => t.status !== 'Completed').length
+                  )}
+                </p>
+              </div>
+              <div className="p-2 bg-purple-100 rounded-full text-purple-600">
+                <FileText size={20} />
+              </div>
             </div>
           </CardContent>
-          <CardFooter className="pt-0">
-            <p className="text-xs text-gray-500">Year to date growth</p>
-          </CardFooter>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Avg. IRR (Target)</CardDescription>
-            <CardTitle className="text-2xl flex items-center justify-between">
-              17.3%
-              <TrendingUp className="text-nuvos-purple" size={20} />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-2">
-            <div className="flex items-center text-xs text-amber-500 font-medium">
-              <ArrowUpRight size={14} className="mr-1" />
-              <span>1.2% below target</span>
+          <CardContent className="p-6">
+            <div className="flex justify-between items-start">
+              <div className="space-y-1">
+                <p className="text-sm text-gray-500">Team Members</p>
+                <p className="text-3xl font-bold">1</p>
+              </div>
+              <div className="p-2 bg-amber-100 rounded-full text-amber-600">
+                <Users size={20} />
+              </div>
             </div>
           </CardContent>
-          <CardFooter className="pt-0">
-            <p className="text-xs text-gray-500">Target IRR: 18.5%</p>
-          </CardFooter>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Portfolio Performance by Property Type</CardTitle>
-            <CardDescription>Value in millions ($) for the last 6 months</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-2">
-            <div className="h-[300px] w-full">
-              <BarChart
-                data={chartData}
-                categories={["Office", "Retail", "Multifamily", "Industrial"]}
-                index="name"
-                colors={["#0A1933", "#12B5B0", "#9B7BFF", "#2A85FF"]}
-                valueFormatter={(value) => `$${value / 1000}M`}
-                yAxisWidth={60}
-              />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+        <Card className="overflow-hidden">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle>Deal Pipeline</CardTitle>
+              <Link to="/deals/pipeline">
+                <Button variant="ghost" size="sm">View All</Button>
+              </Link>
             </div>
+            <CardDescription>Distribution of deals across stages</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingDeals ? (
+              <div className="h-80 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-nuvos-teal"></div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <RechartsBarChart data={dealsData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
+                </RechartsBarChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest updates from your deals</CardDescription>
+        <Card className="overflow-hidden">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle>Portfolio Performance</CardTitle>
+              <Button variant="ghost" size="sm">View Report</Button>
+            </div>
+            <CardDescription>Year-to-date performance metrics</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4 max-h-[280px] overflow-y-auto">
-              {recentActivity.map((activity) => (
-                <div key={activity.id} className="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-none">
-                  <div className="w-2 h-2 bg-nuvos-teal rounded-full mt-2" />
-                  <div className="flex-1">
-                    <p className="font-medium text-sm">{activity.action}</p>
-                    <p className="text-sm text-gray-500">{activity.property}</p>
-                    <p className="text-xs text-gray-400">{activity.time}</p>
-                  </div>
-                  <div>
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      activity.status === "New" 
-                        ? "bg-green-100 text-green-800" 
-                        : activity.status === "Updated" 
-                          ? "bg-blue-100 text-blue-800"
-                          : "bg-gray-100 text-gray-800"
-                    }`}>
-                      {activity.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ResponsiveContainer width="100%" height={300}>
+              <RechartsLineChart data={performanceData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} />
+              </RechartsLineChart>
+            </ResponsiveContainer>
           </CardContent>
-          <CardFooter>
-            <Button variant="ghost" className="w-full text-nuvos-teal hover:text-nuvos-teal/90">
-              View All Activity
-            </Button>
-          </CardFooter>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Active Deal Pipeline</CardTitle>
-            <CardDescription>Current deal status across stages</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex flex-col">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium">Screening (8)</span>
-                  <span className="text-xs text-gray-500">35%</span>
-                </div>
-                <div className="w-full bg-gray-100 h-2 rounded-full">
-                  <div className="bg-nuvos-teal h-2 rounded-full" style={{ width: "35%" }}></div>
-                </div>
-              </div>
-              
-              <div className="flex flex-col">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium">Due Diligence (6)</span>
-                  <span className="text-xs text-gray-500">26%</span>
-                </div>
-                <div className="w-full bg-gray-100 h-2 rounded-full">
-                  <div className="bg-nuvos-purple h-2 rounded-full" style={{ width: "26%" }}></div>
-                </div>
-              </div>
-              
-              <div className="flex flex-col">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium">Negotiation (5)</span>
-                  <span className="text-xs text-gray-500">22%</span>
-                </div>
-                <div className="w-full bg-gray-100 h-2 rounded-full">
-                  <div className="bg-nuvos-lightblue h-2 rounded-full" style={{ width: "22%" }}></div>
-                </div>
-              </div>
-              
-              <div className="flex flex-col">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium">Closing (4)</span>
-                  <span className="text-xs text-gray-500">17%</span>
-                </div>
-                <div className="w-full bg-gray-100 h-2 rounded-full">
-                  <div className="bg-green-500 h-2 rounded-full" style={{ width: "17%" }}></div>
-                </div>
-              </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="col-span-1 lg:col-span-2">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle>Recent Deals</CardTitle>
+              <Link to="/deals/pipeline">
+                <Button variant="ghost" size="sm">View All Deals</Button>
+              </Link>
             </div>
-          </CardContent>
-          <CardFooter>
-            <Button variant="outline" className="w-full">
-              View Pipeline
-            </Button>
-          </CardFooter>
-        </Card>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle>Top Properties by Performance</CardTitle>
-            <CardDescription>Based on IRR and cash flow</CardDescription>
+            <CardDescription>Your most recent real estate opportunities</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {[
-                {
-                  name: "Oakridge Apartments",
-                  type: "Multifamily",
-                  irr: "24.5%",
-                  location: "Austin, TX",
-                },
-                {
-                  name: "Century Business Park",
-                  type: "Industrial",
-                  irr: "22.1%",
-                  location: "Nashville, TN",
-                },
-                {
-                  name: "Metro Office Tower",
-                  type: "Office",
-                  irr: "19.7%",
-                  location: "Charlotte, NC",
-                },
-                {
-                  name: "Riverside Commons",
-                  type: "Retail",
-                  irr: "18.3%",
-                  location: "Denver, CO",
-                },
-              ].map((property, index) => (
-                <div 
-                  key={index} 
-                  className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-md flex items-center justify-center ${
-                      property.type === "Multifamily" ? "bg-nuvos-teal/10 text-nuvos-teal" :
-                      property.type === "Industrial" ? "bg-nuvos-purple/10 text-nuvos-purple" :
-                      property.type === "Office" ? "bg-nuvos-blue/10 text-nuvos-blue" :
-                      "bg-nuvos-lightblue/10 text-nuvos-lightblue"
-                    }`}>
-                      <Building2 size={20} />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-sm">{property.name}</h4>
-                      <p className="text-xs text-gray-500">{property.type} | {property.location}</p>
+            {loadingDeals ? (
+              <div className="space-y-4">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-20 bg-gray-100 animate-pulse rounded-lg"></div>
+                ))}
+              </div>
+            ) : recentDeals.length > 0 ? (
+              <div className="space-y-4">
+                {recentDeals.map((deal) => (
+                  <div 
+                    key={deal.id}
+                    className="p-4 border border-gray-100 rounded-lg hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-3">
+                        <div className={getPriorityStyles(deal.priority)} title={`Priority: ${deal.priority}`} />
+                        <div>
+                          <h4 className="font-medium">{deal.name}</h4>
+                          <div className="flex items-center gap-1 text-gray-500 text-xs mb-2">
+                            <MapPin size={12} />
+                            <span>Austin, TX</span>
+                          </div>
+                          <div className="flex gap-3">
+                            <Badge className={getPropertyTypeColor("Multifamily")}>
+                              Multifamily
+                            </Badge>
+                            <Badge variant="outline">{deal.status}</Badge>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-medium">{deal.price}</div>
+                        <div className="text-xs text-gray-500">Cap Rate: {deal.cap_rate}</div>
+                      </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-medium text-sm">{property.irr}</p>
-                    <p className="text-xs text-gray-500">IRR</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-10">
+                <Building className="h-12 w-12 text-gray-300 mb-4" />
+                <h3 className="text-lg font-medium mb-1">No deals yet</h3>
+                <p className="text-gray-500 text-sm text-center mb-4">
+                  Start tracking your real estate opportunities
+                </p>
+                <Link to="/deals/pipeline">
+                  <Button className="bg-nuvos-teal hover:bg-nuvos-teal/90">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add First Deal
+                  </Button>
+                </Link>
+              </div>
+            )}
           </CardContent>
-          <CardFooter>
-            <Button variant="outline" className="w-full">
-              View All Properties
-            </Button>
-          </CardFooter>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle>Upcoming Tasks</CardTitle>
+              <Button variant="ghost" size="sm">View All</Button>
+            </div>
+            <CardDescription>Tasks that need your attention</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingTasks ? (
+              <div className="space-y-4">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-16 bg-gray-100 animate-pulse rounded-lg"></div>
+                ))}
+              </div>
+            ) : upcomingTasks.length > 0 ? (
+              <div className="space-y-2">
+                {upcomingTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="font-medium">{task.title}</div>
+                      <Badge className={getTaskStatusColor(task.status)}>
+                        {task.status}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-gray-500">
+                      <div className="flex items-center gap-1">
+                        <Clock size={14} />
+                        {new Date(task.due_date).toLocaleDateString()}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span>Assigned to:</span>
+                        <Avatar className="h-5 w-5">
+                          <AvatarFallback className="text-[10px] bg-nuvos-blue text-white">
+                            {getInitials(profile?.name || 'User')}
+                          </AvatarFallback>
+                        </Avatar>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8">
+                <CheckCircle2 className="h-12 w-12 text-gray-300 mb-4" />
+                <h3 className="text-lg font-medium mb-1">No tasks yet</h3>
+                <p className="text-gray-500 text-sm text-center mb-4">
+                  You're all caught up!
+                </p>
+                <Button variant="outline">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Create Task
+                </Button>
+              </div>
+            )}
+          </CardContent>
         </Card>
       </div>
     </div>
