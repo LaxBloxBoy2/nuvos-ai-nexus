@@ -145,7 +145,7 @@ declare module 'react-beautiful-dnd' {
 
   export type MovementMode = 'FLUID' | 'SNAP';
 
-  export interface DraggableProps {
+  export interface DraggableComponentProps {
     draggableId: DraggableId;
     index: number;
     children: DraggableChildrenFn;
@@ -154,7 +154,7 @@ declare module 'react-beautiful-dnd' {
     type?: TypeId;
   }
 
-  export interface DroppableProps {
+  export interface DroppableComponentProps {
     droppableId: DroppableId;
     type?: TypeId;
     mode?: DroppableMode;
@@ -187,7 +187,7 @@ declare module 'react-beautiful-dnd' {
     options?: Record<string, unknown>;
   }
 
-  export const DragDropContext: React.FC<DragDropContextProps>;
-  export const Draggable: React.FC<DraggableProps>;
-  export const Droppable: React.FC<DroppableProps>;
+  export class DragDropContext extends React.Component<DragDropContextProps> {}
+  export class Draggable extends React.Component<DraggableComponentProps> {}
+  export class Droppable extends React.Component<DroppableComponentProps> {}
 }

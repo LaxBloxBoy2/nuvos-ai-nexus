@@ -56,6 +56,10 @@ export interface Deal {
   irr: string;
   priority?: 'High' | 'Medium' | 'Low';
   dueDate?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  property_type?: string;
 }
 
 export interface Task {
