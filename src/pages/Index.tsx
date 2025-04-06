@@ -1,13 +1,9 @@
-
 import { Link } from "react-router-dom";
 import { Building, BarChart3, Calculator, BrainCircuit, ChevronRight, Star, ArrowRight, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion } from "framer-motion";
 import { useEffect, useRef } from "react";
-
-// Import framer-motion
-<lov-add-dependency>framer-motion@latest</lov-add-dependency>
 
 const Index = () => {
   const { user } = useAuth();
@@ -592,52 +588,4 @@ const Index = () => {
               <div>
                 <h3 className="font-semibold mb-4">Resources</h3>
                 <ul className="space-y-2">
-                  <li><a href="#" className="text-gray-600 hover:text-nuvos-teal transition-colors">Documentation</a></li>
-                  <li><a href="#" className="text-gray-600 hover:text-nuvos-teal transition-colors">Guides</a></li>
-                  <li><a href="#" className="text-gray-600 hover:text-nuvos-teal transition-colors">Blog</a></li>
-                </ul>
-              </div>
-              
-              <div>
-                <h3 className="font-semibold mb-4">Company</h3>
-                <ul className="space-y-2">
-                  <li><a href="#" className="text-gray-600 hover:text-nuvos-teal transition-colors">About</a></li>
-                  <li><a href="#" className="text-gray-600 hover:text-nuvos-teal transition-colors">Careers</a></li>
-                  <li><a href="#" className="text-gray-600 hover:text-nuvos-teal transition-colors">Contact</a></li>
-                </ul>
-              </div>
-            </div>
-          </div>
-          
-          <div className="mt-12 pt-8 border-t border-gray-200 flex flex-col md:flex-row justify-between items-center">
-            <p className="text-gray-500 text-sm">
-              &copy; {new Date().getFullYear()} Nuvos. All rights reserved.
-            </p>
-            <div className="flex space-x-4 mt-4 md:mt-0">
-              <a href="#" className="text-gray-500 hover:text-nuvos-blue transition-colors">Terms</a>
-              <a href="#" className="text-gray-500 hover:text-nuvos-blue transition-colors">Privacy</a>
-              <a href="#" className="text-gray-500 hover:text-nuvos-blue transition-colors">Cookies</a>
-            </div>
-          </div>
-        </div>
-      </footer>
-
-      {/* Add some animation keyframes */}
-      <style jsx>{`
-        @keyframes gradient-shift {
-          0% {
-            background-position: 0% 50%;
-          }
-          50% {
-            background-position: 100% 50%;
-          }
-          100% {
-            background-position: 0% 50%;
-          }
-        }
-      `}</style>
-    </div>
-  );
-};
-
-export default Index;
+                  <li><a href="#" className="text-gray-600 hover:text

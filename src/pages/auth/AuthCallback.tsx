@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const AuthCallback = () => {
   const navigate = useNavigate();
@@ -49,7 +50,11 @@ const AuthCallback = () => {
           if (insertError) {
             console.error('Error creating user profile:', insertError);
             // Continue anyway, we don't want to block the user
+          } else {
+            toast.success('Account created successfully!');
           }
+        } else {
+          toast.success('Logged in successfully!');
         }
         
         // Redirect to dashboard
@@ -57,6 +62,7 @@ const AuthCallback = () => {
       } catch (error) {
         console.error('Error during auth callback:', error);
         setError(error instanceof Error ? error.message : 'Authentication failed');
+        toast.error('Authentication failed. Redirecting to login page...');
         setTimeout(() => navigate('/login'), 3000);
       }
     };

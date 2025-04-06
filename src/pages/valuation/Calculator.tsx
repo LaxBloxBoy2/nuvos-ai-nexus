@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -671,10 +670,10 @@ const PropertyCalculator = () => {
                       <span className="text-gray-500">Annual Debt Service:</span>
                       <span className="font-medium">
                         {formatCurrency(
-                          purchasePrice * 
-                          (1 - downPayment / 100) * 
-                          ((interestRate / 100 / 12) * Math.pow(1 + interestRate / 100 / 12, loanTerm * 12)) / 
-                          (Math.pow(1 + interestRate / 100 / 12, loanTerm * 12) - 1) * 
+                          Number(purchasePrice) * 
+                          (1 - Number(downPayment) / 100) * 
+                          ((Number(interestRate) / 100 / 12) * Math.pow(1 + Number(interestRate) / 100 / 12, Number(loanTerm) * 12)) / 
+                          (Math.pow(1 + Number(interestRate) / 100 / 12, Number(loanTerm) * 12) - 1) * 
                           12
                         )}
                       </span>
