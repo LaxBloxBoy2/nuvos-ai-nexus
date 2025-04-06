@@ -22,8 +22,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 // Create Supabase client with proper error handling
 export const supabase = createClient(
-  supabaseUrl || 'https://placeholder-url.supabase.co',
-  supabaseAnonKey || 'placeholder-key'
+  supabaseUrl || 'https://example.supabase.co', // Valid URL format
+  supabaseAnonKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MTY1MDE5OTksImV4cCI6MTYxNjUwMTk5OX0.placeholder' // Valid format for anon key
 );
 
 // Define database types
