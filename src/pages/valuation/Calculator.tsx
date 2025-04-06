@@ -5,18 +5,18 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
-import { LineChart } from "@/components/ui/chart";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   BookOpen, 
-  Calculator, 
+  Calculator as CalculatorIcon, 
   DownloadIcon, 
   Share2Icon, 
   Building, 
   Landmark, 
   LineChart as LineChartIcon 
 } from "lucide-react";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import * as RechartsPrimitive from "recharts";
 
 interface CashFlowYear {
   year: number;
@@ -27,7 +27,7 @@ interface CashFlowYear {
   cumulative: number;
 }
 
-const Calculator = () => {
+const PropertyCalculator = () => {
   const [propertyType, setPropertyType] = useState("multifamily");
   const [purchasePrice, setPurchasePrice] = useState(10000000);
   const [capRate, setCapRate] = useState(5.5);
@@ -224,15 +224,15 @@ const Calculator = () => {
         </div>
         <div className="mt-4 md:mt-0 flex gap-3">
           <Button variant="outline" className="flex items-center gap-1">
-            <BookOpen size={16} />
+            <BookOpen className="h-4 w-4" />
             Load Template
           </Button>
           <Button variant="outline" className="flex items-center gap-1">
-            <DownloadIcon size={16} />
+            <DownloadIcon className="h-4 w-4" />
             Export
           </Button>
           <Button variant="outline" className="flex items-center gap-1">
-            <Share2Icon size={16} />
+            <Share2Icon className="h-4 w-4" />
             Share
           </Button>
         </div>
@@ -464,7 +464,7 @@ const Calculator = () => {
             </CardContent>
             <CardFooter>
               <Button variant="outline" className="w-full flex items-center gap-2">
-                <Calculator size={16} />
+                <CalculatorIcon className="h-4 w-4" />
                 Run Simulation
               </Button>
             </CardFooter>
@@ -514,27 +514,61 @@ const Calculator = () => {
                   
                   <TabsContent value="chart">
                     <div className="h-[300px]">
-                      <LineChart
-                        data={chartData}
-                        index="year"
-                        categories={["NOI", "Cash Flow"]}
-                        colors={["#12B5B0", "#0A1933"]}
-                        valueFormatter={(value) => `$${(value / 1000).toFixed(0)}K`}
-                        yAxisWidth={60}
-                      />
+                      <ChartContainer
+                        config={{
+                          NOI: { color: "#12B5B0" },
+                          "Cash Flow": { color: "#0A1933" }
+                        }}
+                      >
+                        <RechartsPrimitive.LineChart data={chartData}>
+                          <RechartsPrimitive.CartesianGrid strokeDasharray="3 3" />
+                          <RechartsPrimitive.XAxis dataKey="year" />
+                          <RechartsPrimitive.YAxis 
+                            tickFormatter={(value) => `$${(value / 1000).toFixed(0)}K`}
+                            width={60}
+                          />
+                          <RechartsPrimitive.Tooltip
+                            content={({ active, payload }) => (
+                              <ChartTooltipContent 
+                                active={active} 
+                                payload={payload}
+                                formatter={(value) => `$${(value / 1000).toFixed(0)}K`}
+                              />
+                            )}
+                          />
+                          <RechartsPrimitive.Line type="monotone" dataKey="NOI" stroke="#12B5B0" />
+                          <RechartsPrimitive.Line type="monotone" dataKey="Cash Flow" stroke="#0A1933" />
+                        </RechartsPrimitive.LineChart>
+                      </ChartContainer>
                     </div>
                   </TabsContent>
                   
                   <TabsContent value="cumulative">
                     <div className="h-[300px]">
-                      <LineChart
-                        data={cumulativeData}
-                        index="year"
-                        categories={["Cumulative"]}
-                        colors={["#9B7BFF"]}
-                        valueFormatter={(value) => `$${(value / 1000).toFixed(0)}K`}
-                        yAxisWidth={60}
-                      />
+                      <ChartContainer
+                        config={{
+                          Cumulative: { color: "#9B7BFF" }
+                        }}
+                      >
+                        <RechartsPrimitive.LineChart data={cumulativeData}>
+                          <RechartsPrimitive.CartesianGrid strokeDasharray="3 3" />
+                          <RechartsPrimitive.XAxis dataKey="year" />
+                          <RechartsPrimitive.YAxis 
+                            tickFormatter={(value) => `$${(value / 1000).toFixed(0)}K`}
+                            width={60}
+                          />
+                          <RechartsPrimitive.Tooltip
+                            content={({ active, payload }) => (
+                              <ChartTooltipContent 
+                                active={active} 
+                                payload={payload}
+                                formatter={(value) => `$${(value / 1000).toFixed(0)}K`}
+                              />
+                            )}
+                          />
+                          <RechartsPrimitive.Line type="monotone" dataKey="Cumulative" stroke="#9B7BFF" />
+                        </RechartsPrimitive.LineChart>
+                      </ChartContainer>
                     </div>
                   </TabsContent>
                   
@@ -574,7 +608,7 @@ const Calculator = () => {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2">
-                    <Building size={18} />
+                    <Building className="h-5 w-5" />
                     Investment Summary
                   </CardTitle>
                 </CardHeader>
@@ -611,7 +645,7 @@ const Calculator = () => {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2">
-                    <Landmark size={18} />
+                    <Landmark className="h-5 w-5" />
                     Financing Details
                   </CardTitle>
                 </CardHeader>
@@ -656,4 +690,4 @@ const Calculator = () => {
   );
 };
 
-export default Calculator;
+export default PropertyCalculator;

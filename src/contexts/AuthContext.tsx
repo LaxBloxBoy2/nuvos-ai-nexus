@@ -4,14 +4,16 @@ import { Session, User, AuthError } from '@supabase/supabase-js';
 import { useNavigate } from 'react-router-dom';
 import { supabase, UserProfile, UserRole } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { PostgrestError } from '@supabase/supabase-js';
 
+// Update the AuthContextType to include PostgrestError possibility in signUp return type
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
-  signUp: (email: string, password: string, name: string, role: UserRole) => Promise<{ error: AuthError | null }>;
+  signUp: (email: string, password: string, name: string, role: UserRole) => Promise<{ error: AuthError | PostgrestError | null }>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   forgotPassword: (email: string) => Promise<{ error: AuthError | null }>;
