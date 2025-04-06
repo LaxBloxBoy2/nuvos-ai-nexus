@@ -2,11 +2,29 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Supabase configuration
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Create Supabase client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Check if environment variables are properly set
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error(
+    "Supabase environment variables are missing! Make sure to create a .env file with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY."
+  );
+  
+  // Provide fallback values for development only
+  // This prevents the app from crashing during development but won't work for actual API calls
+  if (import.meta.env.DEV) {
+    console.warn(
+      "Using fallback values for development. API calls to Supabase will fail until you set proper credentials."
+    );
+  }
+}
+
+// Create Supabase client with proper error handling
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder-url.supabase.co',
+  supabaseAnonKey || 'placeholder-key'
+);
 
 // Define database types
 export type UserRole = 'Investor' | 'Analyst' | 'Admin';
