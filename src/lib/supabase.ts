@@ -1,5 +1,6 @@
 
-import { supabase } from '@/integrations/supabase/client';
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@/integrations/supabase/types';
 
 // Define database types
 export type UserRole = 'Investor' | 'Analyst' | 'Admin';
@@ -77,4 +78,15 @@ export interface Document {
   created_at: string;
 }
 
-export { supabase };
+// Initialize the Supabase client
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+// Create and export Supabase client
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    storageKey: 'nuvos-auth-token'
+  }
+});

@@ -572,11 +572,11 @@ const Calculator = () => {
                   />
                 </div>
               </CardContent>
-              <CardFooter>
+              <div className="flex items-center p-6 pt-0">
                 <Button className="w-full bg-nuvos-teal hover:bg-nuvos-teal/90 h-12" onClick={handleSubmitValuation} disabled={isSubmitting}>
                   {isSubmitting ? "Submitting..." : "Submit Valuation"}
                 </Button>
-              </CardFooter>
+              </div>
             </Card>
           </ResizablePanel>
         </ResizablePanelGroup>

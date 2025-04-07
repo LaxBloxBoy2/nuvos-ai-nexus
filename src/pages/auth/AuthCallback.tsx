@@ -31,7 +31,7 @@ const AuthCallback = () => {
         // Check if user profile exists
         const { data: profile, error: profileError } = await supabase
           .from('users')
-          .select('*')
+          .select()
           .eq('id', user.id)
           .single();
           
@@ -43,13 +43,15 @@ const AuthCallback = () => {
         if (!profile) {
           console.log("Creating new profile for user:", user.id);
           // Create new profile if it doesn't exist
-          const { error: insertError } = await supabase.from('users').insert([{
-            id: user.id,
-            email: user.email,
-            name: user.user_metadata.full_name || user.email?.split('@')[0] || 'User',
-            role: 'Investor', // Default role
-            created_at: new Date().toISOString(),
-          }]);
+          const { error: insertError } = await supabase
+            .from('users')
+            .insert([{
+              id: user.id,
+              email: user.email || '',
+              name: user.user_metadata.full_name || user.email?.split('@')[0] || 'User',
+              role: 'Investor', // Default role
+              created_at: new Date().toISOString(),
+            }]);
           
           if (insertError) {
             console.error('Error creating user profile:', insertError);
