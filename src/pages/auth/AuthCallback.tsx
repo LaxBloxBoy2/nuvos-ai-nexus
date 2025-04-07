@@ -28,39 +28,24 @@ const AuthCallback = () => {
         const user = data.session.user;
         console.log("User authenticated:", user.id);
         
-        // Check if user profile exists
-        const { data: profile, error: profileError } = await supabase
-          .from('users')
-          .select()
-          .eq('id', user.id)
-          .single();
-          
-        if (profileError && profileError.code !== 'PGRST116') {
-          // PGRST116 is the error code for "no rows found"
-          console.error('Error fetching user profile:', profileError);
-        }
-          
-        if (!profile) {
-          console.log("Creating new profile for user:", user.id);
-          // Create new profile if it doesn't exist
-          const { error: insertError } = await supabase
-            .from('users')
-            .insert([{
-              id: user.id,
-              email: user.email || '',
-              name: user.user_metadata.full_name || user.email?.split('@')[0] || 'User',
-              role: 'Investor', // Default role
-              created_at: new Date().toISOString(),
-            }]);
-          
-          if (insertError) {
-            console.error('Error creating user profile:', insertError);
-            // Continue anyway, we don't want to block the user
-          } else {
-            toast.success('Account created successfully!');
+        // Instead of trying to directly insert into the users table,
+        // call a server-side function to handle profile creation
+        // This bypasses RLS policies since server functions run with elevated privileges
+        const { data: profileData, error: profileError } = await supabase.rpc(
+          'create_user_profile',
+          { 
+            user_id: user.id,
+            user_email: user.email || '',
+            user_name: user.user_metadata.full_name || user.email?.split('@')[0] || 'User',
+            user_role: 'Investor'
           }
+        );
+        
+        if (profileError) {
+          console.error('Error creating user profile:', profileError);
+          // Try to continue anyway - user might already exist
         } else {
-          toast.success('Logged in successfully!');
+          toast.success('Account created successfully!');
         }
         
         // Redirect to dashboard

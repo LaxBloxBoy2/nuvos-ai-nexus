@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session, User, AuthError } from '@supabase/supabase-js';
 import { useNavigate } from 'react-router-dom';
@@ -134,22 +133,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       if (data.user) {
-        // Create user profile in database
-        const { error: profileError } = await supabase
-          .from('users')
-          .insert([{
-            id: data.user.id,
-            email,
-            name,
-            role
-          }]);
-          
-        if (profileError) {
-          console.error('Error creating user profile:', profileError);
-          toast.error(`Error creating user profile: ${profileError.message}`);
-          return { error: profileError };
-        }
-        
+        // Instead of directly creating a profile, rely on the auth webhook/trigger 
+        // or the AuthCallback component to handle profile creation
         toast.success('Account created successfully! Please check your email for verification.');
         navigate('/login');
       }
