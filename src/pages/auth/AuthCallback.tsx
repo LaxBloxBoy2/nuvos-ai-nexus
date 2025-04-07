@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -16,14 +16,17 @@ const AuthCallback = () => {
         const { data, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
+          console.error("Session error:", sessionError);
           throw new Error(sessionError.message);
         }
         
         if (!data?.session || !data.session.user) {
+          console.error("No user found in session");
           throw new Error('No user found in session');
         }
         
         const user = data.session.user;
+        console.log("User authenticated:", user.id);
         
         // Check if user profile exists
         const { data: profile, error: profileError } = await supabase
@@ -38,6 +41,7 @@ const AuthCallback = () => {
         }
           
         if (!profile) {
+          console.log("Creating new profile for user:", user.id);
           // Create new profile if it doesn't exist
           const { error: insertError } = await supabase.from('users').insert([{
             id: user.id,

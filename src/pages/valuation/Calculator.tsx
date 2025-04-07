@@ -1,692 +1,588 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  BookOpen, 
-  Calculator as CalculatorIcon, 
-  DownloadIcon, 
-  Share2Icon, 
-  Building, 
-  Landmark, 
-  LineChart as LineChartIcon 
-} from "lucide-react";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import * as RechartsPrimitive from "recharts";
+import { Slider } from "@/components/ui/slider"
+import { useToast } from "@/hooks/use-toast"
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable"
+import { motion } from "framer-motion";
 
-interface CashFlowYear {
-  year: number;
-  income: number;
-  expenses: number;
-  noi: number;
-  cashFlow: number;
-  cumulative: number;
+interface Assumptions {
+  [key: string]: number;
 }
 
-const PropertyCalculator = () => {
-  const [propertyType, setPropertyType] = useState("multifamily");
-  const [purchasePrice, setPurchasePrice] = useState(10000000);
-  const [capRate, setCapRate] = useState(5.5);
-  const [annualIncome, setAnnualIncome] = useState(550000);
-  const [annualExpenses, setAnnualExpenses] = useState(275000);
-  const [growthRate, setGrowthRate] = useState(3);
-  const [expenseGrowthRate, setExpenseGrowthRate] = useState(2.5);
-  const [holdingPeriod, setHoldingPeriod] = useState(5);
-  const [exitCapRate, setExitCapRate] = useState(5.8);
-  const [downPayment, setDownPayment] = useState(30);
-  const [interestRate, setInterestRate] = useState(4.5);
-  const [loanTerm, setLoanTerm] = useState(30);
-  
-  const [noi, setNoi] = useState(0);
-  const [cashFlowData, setCashFlowData] = useState<CashFlowYear[]>([]);
-  const [irr, setIrr] = useState(0);
-  const [cashOnCash, setCashOnCash] = useState(0);
-  const [exitValue, setExitValue] = useState(0);
-  const [equity, setEquity] = useState(0);
-  const [returnOnInvestment, setReturnOnInvestment] = useState(0);
-  
-  useEffect(() => {
-    calculateResults();
-  }, [
-    purchasePrice, 
-    capRate, 
-    annualIncome, 
-    annualExpenses, 
-    growthRate, 
-    expenseGrowthRate, 
-    holdingPeriod, 
-    exitCapRate, 
-    downPayment, 
-    interestRate, 
-    loanTerm
-  ]);
+const Calculator = () => {
+  const [propertyType, setPropertyType] = useState("Multifamily");
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [zipCode, setZipCode] = useState("");
+  const [value, setValue] = useState("1000000");
+  const [annualIncome, setAnnualIncome] = useState("100000");
+  const [annualExpenses, setAnnualExpenses] = useState("50000");
+  const [capRate, setCapRate] = useState(5);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [assumptions, setAssumptions] = useState<Assumptions>({
+    "Year 1": 0.02,
+    "Year 2": 0.02,
+    "Year 3": 0.02,
+    "Year 4": 0.02,
+    "Year 5": 0.02,
+  });
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [newAssumptionYear, setNewAssumptionYear] = useState("");
+  const [newAssumptionRate, setNewAssumptionRate] = useState(0);
+  const [forecastYears, setForecastYears] = useState(5);
+  const [forecastData, setForecastData] = useState<any[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [valuationName, setValuationName] = useState("");
+  const [valuationNotes, setValuationNotes] = useState("");
+  const { toast } = useToast()
+	const { user, profile } = useAuth();
+  const navigate = useNavigate();
 
-  const calculateResults = () => {
-    // Calculate NOI
-    const calculatedNoi = annualIncome - annualExpenses;
-    setNoi(calculatedNoi);
+  useEffect(() => {
+    if (!user) {
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
+  useEffect(() => {
+    generateForecastData();
+  }, [value, annualIncome, annualExpenses, assumptions, forecastYears]);
+
+  const handlePropertyTypeChange = (propertyType: string) => {
+    setPropertyType(propertyType);
+  };
+
+  const handleAddressChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setAddress(event.target.value);
+  };
+
+  const handleCityChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setCity(event.target.value);
+  };
+
+  const handleStateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setState(event.target.value);
+  };
+
+  const handleZipCodeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setZipCode(event.target.value);
+  };
+
+  const handleValueChange = (value: string) => {
+    // Convert string to number before arithmetic operation
+    const propertyValue = parseFloat(value) || 0;
+    // Use the numeric value for calculations
+    setValue(propertyValue.toString());
     
-    // Loan details
-    const loanAmount = purchasePrice * (1 - downPayment / 100);
-    const downPaymentAmount = purchasePrice * (downPayment / 100);
-    const monthlyInterest = interestRate / 100 / 12;
-    const totalPayments = loanTerm * 12;
-    const monthlyPayment = loanAmount * (monthlyInterest * Math.pow(1 + monthlyInterest, totalPayments)) / 
-                          (Math.pow(1 + monthlyInterest, totalPayments) - 1);
-    const annualDebtService = monthlyPayment * 12;
+    // Update other dependent calculated fields
+    const noi = parseFloat(annualIncome) - parseFloat(annualExpenses);
+    // Use numeric values for calculations
+    const calculatedCapRate = (noi / propertyValue) * 100;
+    setCapRate(isNaN(calculatedCapRate) ? 0 : calculatedCapRate);
+  };
+
+  const handleAnnualIncomeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setAnnualIncome(event.target.value);
+    generateForecastData();
+  };
+
+  const handleAnnualExpensesChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setAnnualExpenses(event.target.value);
+    generateForecastData();
+  };
+
+  const handleCapRateChange = (value: string) => {
+    // Convert string to number before arithmetic operation
+    const capRateValue = parseFloat(value) || 0;
+    // Use the numeric value for calculations
+    setCapRate(capRateValue);
     
-    // Generate cash flow projection
-    const cashFlows = [];
-    let cumulativeCashFlow = -downPaymentAmount;
-    
-    for (let year = 1; year <= holdingPeriod; year++) {
-      const yearlyIncome = annualIncome * Math.pow(1 + growthRate / 100, year - 1);
-      const yearlyExpenses = annualExpenses * Math.pow(1 + expenseGrowthRate / 100, year - 1);
-      const yearlyNoi = yearlyIncome - yearlyExpenses;
-      const yearlyCashFlow = yearlyNoi - annualDebtService;
-      
-      cumulativeCashFlow += yearlyCashFlow;
-      
-      cashFlows.push({
-        year,
-        income: Math.round(yearlyIncome),
-        expenses: Math.round(yearlyExpenses),
-        noi: Math.round(yearlyNoi),
-        cashFlow: Math.round(yearlyCashFlow),
-        cumulative: Math.round(cumulativeCashFlow)
+    // Update other dependent calculated fields
+    const noi = parseFloat(annualIncome) - parseFloat(annualExpenses);
+    // Use numeric values for calculations
+    const calculatedValue = noi / (capRateValue / 100);
+    setValue(calculatedValue.toFixed(2));
+  };
+
+  const toggleAdvanced = () => {
+    setShowAdvanced(!showAdvanced);
+  };
+
+  const handleAssumptionChange = (year: string, rate: number) => {
+    setAssumptions((prevAssumptions) => ({
+      ...prevAssumptions,
+      [year]: rate,
+    }));
+  };
+
+  const handleOpenDialog = () => {
+    setIsDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setNewAssumptionYear("");
+    setNewAssumptionRate(0);
+  };
+
+  const handleAddAssumption = () => {
+    if (newAssumptionYear && newAssumptionRate) {
+      setAssumptions((prevAssumptions) => ({
+        ...prevAssumptions,
+        [newAssumptionYear]: newAssumptionRate / 100,
+      }));
+      handleCloseDialog();
+    }
+  };
+
+  const handleDeleteAssumption = (year: string) => {
+    const { [year]: deleted, ...rest } = assumptions;
+    setAssumptions(rest);
+  };
+
+  const handleForecastYearsChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const years = parseInt(event.target.value, 10);
+    if (!isNaN(years) && years > 0) {
+      setForecastYears(years);
+    }
+  };
+
+  const generateForecastData = () => {
+    let initialValue = parseFloat(value);
+    let initialIncome = parseFloat(annualIncome);
+    let initialExpenses = parseFloat(annualExpenses);
+    const newForecastData = [];
+
+    for (let i = 1; i <= forecastYears; i++) {
+      const year = `Year ${i}`;
+      const growthRate = assumptions[year] || 0;
+      initialValue = initialValue * (1 + growthRate);
+      initialIncome = initialIncome * (1 + growthRate);
+      initialExpenses = initialExpenses * (1 + growthRate);
+
+      newForecastData.push({
+        name: year,
+        value: initialValue.toFixed(2),
+        income: initialIncome.toFixed(2),
+        expenses: initialExpenses.toFixed(2),
       });
     }
-    
-    // Calculate exit value
-    const finalYearNoi = annualIncome * Math.pow(1 + growthRate / 100, holdingPeriod - 1) - 
-                         annualExpenses * Math.pow(1 + expenseGrowthRate / 100, holdingPeriod - 1);
-    const calculatedExitValue = finalYearNoi / (exitCapRate / 100);
-    setExitValue(calculatedExitValue);
-    
-    // Calculate remaining loan balance
-    const remainingLoanBalance = calculateRemainingLoanBalance(loanAmount, monthlyInterest, totalPayments, holdingPeriod * 12);
-    
-    // Calculate equity
-    const calculatedEquity = calculatedExitValue - remainingLoanBalance;
-    setEquity(calculatedEquity);
-    
-    // Add sale to final year cash flow
-    const finalYearWithSale = {
-      ...cashFlows[holdingPeriod - 1],
-      cashFlow: Math.round(cashFlows[holdingPeriod - 1].cashFlow + calculatedExitValue - remainingLoanBalance)
-    };
-    cashFlows[holdingPeriod - 1] = finalYearWithSale;
-    
-    setCashFlowData(cashFlows);
-    
-    // Calculate IRR
-    const initialInvestment = -downPaymentAmount;
-    const cashFlowsForIrr = cashFlows.map(cf => cf.cashFlow);
-    cashFlowsForIrr.unshift(initialInvestment);
-    
-    const calculatedIrr = calculateIRR(cashFlowsForIrr) * 100;
-    setIrr(parseFloat(calculatedIrr.toFixed(2)));
-    
-    // Calculate Cash on Cash
-    const firstYearCashFlow = cashFlows[0].cashFlow;
-    const calculatedCashOnCash = (firstYearCashFlow / downPaymentAmount) * 100;
-    setCashOnCash(parseFloat(calculatedCashOnCash.toFixed(2)));
-    
-    // Calculate Return on Investment
-    const totalReturn = calculatedExitValue - remainingLoanBalance + 
-                       cashFlows.reduce((sum, cf) => sum + cf.cashFlow, 0) - 
-                       cashFlows[holdingPeriod - 1].cashFlow; // Exclude the sale proceeds from the sum
-    
-    const calculatedRoi = ((totalReturn - downPaymentAmount) / downPaymentAmount) * 100;
-    setReturnOnInvestment(parseFloat(calculatedRoi.toFixed(2)));
+
+    setForecastData(newForecastData);
   };
+
+  const handleSubmitValuation = async () => {
+    setIsSubmitting(true);
   
-  const calculateRemainingLoanBalance = (principal: number, monthlyInterest: number, totalPayments: number, paymentsMade: number) => {
-    const monthlyPayment = principal * (monthlyInterest * Math.pow(1 + monthlyInterest, totalPayments)) / 
-                          (Math.pow(1 + monthlyInterest, totalPayments) - 1);
-    
-    return principal * Math.pow(1 + monthlyInterest, paymentsMade) - 
-           monthlyPayment * ((Math.pow(1 + monthlyInterest, paymentsMade) - 1) / monthlyInterest);
-  };
+    try {
+      if (!user || !profile) {
+        throw new Error("User not authenticated or profile not loaded");
+      }
   
-  const calculateIRR = (cashFlows: number[]) => {
-    const guess = 0.1;
-    const maxIterations = 1000;
-    const precision = 0.0000001;
-    
-    let irr = guess;
-    for (let i = 0; i < maxIterations; i++) {
-      const npv = calculateNPV(cashFlows, irr);
-      if (Math.abs(npv) < precision) {
-        return irr;
+      // Prepare model inputs and AI forecast outputs
+      const modelInputs = {
+        propertyType,
+        address,
+        city,
+        state,
+        zipCode,
+        initialValue: parseFloat(value),
+        annualIncome: parseFloat(annualIncome),
+        annualExpenses: parseFloat(annualExpenses),
+        capRate,
+        assumptions,
+        forecastYears,
+      };
+  
+      const aiForecastOutputs = forecastData.map(item => ({
+        year: item.name,
+        value: parseFloat(item.value),
+        income: parseFloat(item.income),
+        expenses: parseFloat(item.expenses),
+      }));
+  
+      // Insert valuation data into Supabase
+      const { data, error } = await supabase
+        .from('valuations')
+        .insert([
+          {
+            property_id: '123', // Replace with actual property ID if available
+            model_inputs: modelInputs,
+            ai_forecast_outputs: aiForecastOutputs,
+            created_by: user.id,
+          }
+        ]);
+  
+      if (error) {
+        console.error("Error submitting valuation:", error);
+        toast({
+          title: "Error submitting valuation",
+          description: "Please try again.",
+          variant: "destructive",
+        });
+      } else {
+        console.log("Valuation submitted successfully:", data);
+        toast({
+          title: "Valuation submitted",
+          description: "Your valuation has been saved.",
+        });
       }
-      
-      const derivative = calculateNPVDerivative(cashFlows, irr);
-      const newIrr = irr - npv / derivative;
-      
-      if (Math.abs(newIrr - irr) < precision) {
-        return newIrr;
-      }
-      
-      irr = newIrr;
+    } catch (error) {
+      console.error("Error submitting valuation:", error);
+      toast({
+        title: "Unexpected error",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    return irr;
   };
-  
-  const calculateNPV = (cashFlows: number[], rate: number) => {
-    return cashFlows.reduce((npv, cf, i) => npv + cf / Math.pow(1 + rate, i), 0);
-  };
-  
-  const calculateNPVDerivative = (cashFlows: number[], rate: number) => {
-    return cashFlows.reduce((derivative, cf, i) => {
-      if (i === 0) return derivative;
-      return derivative - (i * cf) / Math.pow(1 + rate, i + 1);
-    }, 0);
-  };
-  
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
-  
-  const formatPercent = (value: number) => {
-    return `${value.toFixed(2)}%`;
-  };
-
-  // Chart data
-  const chartData = cashFlowData.map(cf => ({
-    year: `Year ${cf.year}`,
-    NOI: cf.noi,
-    "Cash Flow": cf.cashFlow,
-  }));
-
-  // Build cumulative return data
-  const cumulativeData = cashFlowData.map(cf => ({
-    year: `Year ${cf.year}`,
-    "Cumulative": cf.cumulative,
-  }));
 
   return (
-    <div className="p-6 md:p-8">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">DCF & IRR Calculator</h1>
-          <p className="text-gray-500">Analyze investment returns and cash flows</p>
-        </div>
-        <div className="mt-4 md:mt-0 flex gap-3">
-          <Button variant="outline" className="flex items-center gap-1">
-            <BookOpen className="h-4 w-4" />
-            Load Template
-          </Button>
-          <Button variant="outline" className="flex items-center gap-1">
-            <DownloadIcon className="h-4 w-4" />
-            Export
-          </Button>
-          <Button variant="outline" className="flex items-center gap-1">
-            <Share2Icon className="h-4 w-4" />
-            Share
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl">Investment Parameters</CardTitle>
-              <CardDescription>Adjust the values to see results</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="property-type">Property Type</Label>
-                  <Select 
-                    value={propertyType} 
-                    onValueChange={setPropertyType}
-                  >
-                    <SelectTrigger id="property-type">
-                      <SelectValue placeholder="Select property type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="multifamily">Multifamily</SelectItem>
-                      <SelectItem value="office">Office</SelectItem>
-                      <SelectItem value="retail">Retail</SelectItem>
-                      <SelectItem value="industrial">Industrial</SelectItem>
-                      <SelectItem value="hotel">Hotel</SelectItem>
-                      <SelectItem value="medical">Medical Office</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Tabs defaultValue="acquisition">
-                  <TabsList className="grid grid-cols-3 mb-4">
-                    <TabsTrigger value="acquisition">Acquisition</TabsTrigger>
-                    <TabsTrigger value="income">Income</TabsTrigger>
-                    <TabsTrigger value="financing">Financing</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="acquisition" className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="purchase-price">Purchase Price</Label>
-                        <span className="text-sm font-medium">{formatCurrency(purchasePrice)}</span>
-                      </div>
-                      <Input
-                        id="purchase-price"
-                        type="range"
-                        min="1000000"
-                        max="100000000"
-                        step="100000"
-                        value={purchasePrice}
-                        onChange={(e) => setPurchasePrice(Number(e.target.value))}
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="cap-rate">Initial Cap Rate</Label>
-                        <span className="text-sm font-medium">{formatPercent(capRate)}</span>
-                      </div>
-                      <Input
-                        id="cap-rate"
-                        type="range"
-                        min="1"
-                        max="10"
-                        step="0.1"
-                        value={capRate}
-                        onChange={(e) => {
-                          const newCapRate = Number(e.target.value);
-                          setCapRate(newCapRate);
-                          setAnnualIncome(purchasePrice * (newCapRate / 100));
-                        }}
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="exit-cap-rate">Exit Cap Rate</Label>
-                        <span className="text-sm font-medium">{formatPercent(exitCapRate)}</span>
-                      </div>
-                      <Input
-                        id="exit-cap-rate"
-                        type="range"
-                        min="1"
-                        max="10"
-                        step="0.1"
-                        value={exitCapRate}
-                        onChange={(e) => setExitCapRate(Number(e.target.value))}
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="holding-period">Holding Period (Years)</Label>
-                        <span className="text-sm font-medium">{holdingPeriod}</span>
-                      </div>
-                      <Input
-                        id="holding-period"
-                        type="range"
-                        min="1"
-                        max="15"
-                        step="1"
-                        value={holdingPeriod}
-                        onChange={(e) => setHoldingPeriod(Number(e.target.value))}
-                      />
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="income" className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="annual-income">Annual Income</Label>
-                        <span className="text-sm font-medium">{formatCurrency(annualIncome)}</span>
-                      </div>
-                      <Input
-                        id="annual-income"
-                        type="range"
-                        min="100000"
-                        max="10000000"
-                        step="10000"
-                        value={annualIncome}
-                        onChange={(e) => setAnnualIncome(Number(e.target.value))}
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="annual-expenses">Annual Expenses</Label>
-                        <span className="text-sm font-medium">{formatCurrency(annualExpenses)}</span>
-                      </div>
-                      <Input
-                        id="annual-expenses"
-                        type="range"
-                        min="50000"
-                        max="5000000"
-                        step="10000"
-                        value={annualExpenses}
-                        onChange={(e) => setAnnualExpenses(Number(e.target.value))}
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="income-growth">Income Growth Rate</Label>
-                        <span className="text-sm font-medium">{formatPercent(growthRate)}</span>
-                      </div>
-                      <Input
-                        id="income-growth"
-                        type="range"
-                        min="0"
-                        max="10"
-                        step="0.1"
-                        value={growthRate}
-                        onChange={(e) => setGrowthRate(Number(e.target.value))}
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="expense-growth">Expense Growth Rate</Label>
-                        <span className="text-sm font-medium">{formatPercent(expenseGrowthRate)}</span>
-                      </div>
-                      <Input
-                        id="expense-growth"
-                        type="range"
-                        min="0"
-                        max="10"
-                        step="0.1"
-                        value={expenseGrowthRate}
-                        onChange={(e) => setExpenseGrowthRate(Number(e.target.value))}
-                      />
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="financing" className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="down-payment">Down Payment (%)</Label>
-                        <span className="text-sm font-medium">{formatPercent(downPayment)}</span>
-                      </div>
-                      <Input
-                        id="down-payment"
-                        type="range"
-                        min="10"
-                        max="100"
-                        step="5"
-                        value={downPayment}
-                        onChange={(e) => setDownPayment(Number(e.target.value))}
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="interest-rate">Interest Rate</Label>
-                        <span className="text-sm font-medium">{formatPercent(interestRate)}</span>
-                      </div>
-                      <Input
-                        id="interest-rate"
-                        type="range"
-                        min="1"
-                        max="10"
-                        step="0.1"
-                        value={interestRate}
-                        onChange={(e) => setInterestRate(Number(e.target.value))}
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="loan-term">Loan Term (Years)</Label>
-                        <span className="text-sm font-medium">{loanTerm}</span>
-                      </div>
-                      <Input
-                        id="loan-term"
-                        type="range"
-                        min="5"
-                        max="30"
-                        step="5"
-                        value={loanTerm}
-                        onChange={(e) => setLoanTerm(Number(e.target.value))}
-                      />
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button variant="outline" className="w-full flex items-center gap-2">
-                <CalculatorIcon className="h-4 w-4" />
-                Run Simulation
-              </Button>
-            </CardFooter>
-          </Card>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      <div className="container py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-nuvos-blue mb-2">Property Valuation Calculator</h1>
+          <p className="text-gray-500">Estimate the value of a commercial property based on income and expenses.</p>
         </div>
 
-        <div className="lg:col-span-2">
-          <div className="grid grid-cols-1 gap-6">
-            <Card>
+        <ResizablePanelGroup direction="horizontal">
+          <ResizablePanel defaultSize={60}>
+            <Card className="border border-gray-100 shadow-lg">
               <CardHeader className="pb-4">
-                <CardTitle className="text-xl">Key Metrics</CardTitle>
+                <CardTitle className="text-xl font-semibold text-nuvos-blue">Property Details</CardTitle>
+                <CardDescription className="text-gray-500">Enter the property details to begin valuation.</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-gray-500 text-sm mb-1">IRR</div>
-                    <div className="text-2xl font-bold text-nuvos-blue">{formatPercent(irr)}</div>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="property-type">Property Type</Label>
+                    <Select onValueChange={handlePropertyTypeChange}>
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder="Select a type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Multifamily">Multifamily</SelectItem>
+                        <SelectItem value="Office">Office</SelectItem>
+                        <SelectItem value="Retail">Retail</SelectItem>
+                        <SelectItem value="Industrial">Industrial</SelectItem>
+                        <SelectItem value="Hospitality">Hospitality</SelectItem>
+                        <SelectItem value="Land">Land</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-gray-500 text-sm mb-1">Cash on Cash</div>
-                    <div className="text-2xl font-bold text-nuvos-teal">{formatPercent(cashOnCash)}</div>
+                  <div>
+                    <Label htmlFor="address">Address</Label>
+                    <Input
+                      type="text"
+                      id="address"
+                      className="h-11"
+                      value={address}
+                      onChange={handleAddressChange}
+                      placeholder="123 Main St"
+                    />
                   </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-gray-500 text-sm mb-1">Exit Value</div>
-                    <div className="text-2xl font-bold text-nuvos-purple">{formatCurrency(exitValue)}</div>
+                  <div>
+                    <Label htmlFor="city">City</Label>
+                    <Input
+                      type="text"
+                      id="city"
+                      className="h-11"
+                      value={city}
+                      onChange={handleCityChange}
+                      placeholder="Anytown"
+                    />
                   </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-gray-500 text-sm mb-1">Total ROI</div>
-                    <div className="text-2xl font-bold text-nuvos-lightblue">{formatPercent(returnOnInvestment)}</div>
+                  <div>
+                    <Label htmlFor="state">State</Label>
+                    <Input
+                      type="text"
+                      id="state"
+                      className="h-11"
+                      value={state}
+                      onChange={handleStateChange}
+                      placeholder="CA"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="zip-code">Zip Code</Label>
+                    <Input
+                      type="text"
+                      id="zip-code"
+                      className="h-11"
+                      value={zipCode}
+                      onChange={handleZipCodeChange}
+                      placeholder="90210"
+                    />
                   </div>
                 </div>
               </CardContent>
             </Card>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle>Cash Flow Projection</CardTitle>
-                <CardDescription>Annual NOI and cash flow over time</CardDescription>
+
+            <Card className="border border-gray-100 shadow-lg mt-6">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-xl font-semibold text-nuvos-blue">Income & Expenses</CardTitle>
+                <CardDescription className="text-gray-500">Enter the property's income and expenses.</CardDescription>
               </CardHeader>
-              <CardContent>
-                <Tabs defaultValue="chart">
-                  <TabsList className="mb-4">
-                    <TabsTrigger value="chart">Chart</TabsTrigger>
-                    <TabsTrigger value="cumulative">Cumulative</TabsTrigger>
-                    <TabsTrigger value="table">Table</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="chart">
-                    <div className="h-[300px]">
-                      <ChartContainer
-                        config={{
-                          NOI: { color: "#12B5B0" },
-                          "Cash Flow": { color: "#0A1933" }
-                        }}
-                      >
-                        <RechartsPrimitive.LineChart data={chartData}>
-                          <RechartsPrimitive.CartesianGrid strokeDasharray="3 3" />
-                          <RechartsPrimitive.XAxis dataKey="year" />
-                          <RechartsPrimitive.YAxis 
-                            tickFormatter={(value) => `$${(value / 1000).toFixed(0)}K`}
-                            width={60}
-                          />
-                          <RechartsPrimitive.Tooltip
-                            content={({ active, payload }) => (
-                              <ChartTooltipContent 
-                                active={active} 
-                                payload={payload}
-                                formatter={(value) => `$${(value / 1000).toFixed(0)}K`}
-                              />
-                            )}
-                          />
-                          <RechartsPrimitive.Line type="monotone" dataKey="NOI" stroke="#12B5B0" />
-                          <RechartsPrimitive.Line type="monotone" dataKey="Cash Flow" stroke="#0A1933" />
-                        </RechartsPrimitive.LineChart>
-                      </ChartContainer>
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="cumulative">
-                    <div className="h-[300px]">
-                      <ChartContainer
-                        config={{
-                          Cumulative: { color: "#9B7BFF" }
-                        }}
-                      >
-                        <RechartsPrimitive.LineChart data={cumulativeData}>
-                          <RechartsPrimitive.CartesianGrid strokeDasharray="3 3" />
-                          <RechartsPrimitive.XAxis dataKey="year" />
-                          <RechartsPrimitive.YAxis 
-                            tickFormatter={(value) => `$${(value / 1000).toFixed(0)}K`}
-                            width={60}
-                          />
-                          <RechartsPrimitive.Tooltip
-                            content={({ active, payload }) => (
-                              <ChartTooltipContent 
-                                active={active} 
-                                payload={payload}
-                                formatter={(value) => `$${(value / 1000).toFixed(0)}K`}
-                              />
-                            )}
-                          />
-                          <RechartsPrimitive.Line type="monotone" dataKey="Cumulative" stroke="#9B7BFF" />
-                        </RechartsPrimitive.LineChart>
-                      </ChartContainer>
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="table">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left py-2">Year</th>
-                            <th className="text-right py-2">Income</th>
-                            <th className="text-right py-2">Expenses</th>
-                            <th className="text-right py-2">NOI</th>
-                            <th className="text-right py-2">Cash Flow</th>
-                            <th className="text-right py-2">Cumulative</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {cashFlowData.map((cf) => (
-                            <tr key={cf.year} className="border-b">
-                              <td className="py-2">Year {cf.year}</td>
-                              <td className="text-right py-2">{formatCurrency(cf.income)}</td>
-                              <td className="text-right py-2">{formatCurrency(cf.expenses)}</td>
-                              <td className="text-right py-2">{formatCurrency(cf.noi)}</td>
-                              <td className="text-right py-2">{formatCurrency(cf.cashFlow)}</td>
-                              <td className="text-right py-2">{formatCurrency(cf.cumulative)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </TabsContent>
-                </Tabs>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="value">Property Value</Label>
+                    <Input
+                      type="number"
+                      id="value"
+                      className="h-11"
+                      value={value}
+                      onChange={(e) => handleValueChange(e.target.value)}
+                      placeholder="1000000"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="annual-income">Annual Income</Label>
+                    <Input
+                      type="number"
+                      id="annual-income"
+                      className="h-11"
+                      value={annualIncome}
+                      onChange={handleAnnualIncomeChange}
+                      placeholder="100000"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="annual-expenses">Annual Expenses</Label>
+                    <Input
+                      type="number"
+                      id="annual-expenses"
+                      className="h-11"
+                      value={annualExpenses}
+                      onChange={handleAnnualExpensesChange}
+                      placeholder="50000"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="cap-rate">Cap Rate (%)</Label>
+                    <Input
+                      type="number"
+                      id="cap-rate"
+                      className="h-11"
+                      value={capRate}
+                      onChange={(e) => handleCapRateChange(e.target.value)}
+                      placeholder="5"
+                    />
+                  </div>
+                </div>
               </CardContent>
             </Card>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2">
-                    <Building className="h-5 w-5" />
-                    Investment Summary
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex justify-between py-1 border-b">
-                      <span className="text-gray-500">Purchase Price:</span>
-                      <span className="font-medium">{formatCurrency(purchasePrice)}</span>
-                    </div>
-                    <div className="flex justify-between py-1 border-b">
-                      <span className="text-gray-500">Initial Cap Rate:</span>
-                      <span className="font-medium">{formatPercent(capRate)}</span>
-                    </div>
-                    <div className="flex justify-between py-1 border-b">
-                      <span className="text-gray-500">NOI (Year 1):</span>
-                      <span className="font-medium">{formatCurrency(noi)}</span>
-                    </div>
-                    <div className="flex justify-between py-1 border-b">
-                      <span className="text-gray-500">Holding Period:</span>
-                      <span className="font-medium">{holdingPeriod} years</span>
-                    </div>
-                    <div className="flex justify-between py-1 border-b">
-                      <span className="text-gray-500">Exit Cap Rate:</span>
-                      <span className="font-medium">{formatPercent(exitCapRate)}</span>
-                    </div>
-                    <div className="flex justify-between py-1">
-                      <span className="text-gray-500">Exit Value:</span>
-                      <span className="font-medium">{formatCurrency(exitValue)}</span>
-                    </div>
+
+            <Card className="border border-gray-100 shadow-lg mt-6">
+              <CardHeader className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl font-semibold text-nuvos-blue">Advanced Settings</CardTitle>
+                  <CardDescription className="text-gray-500">Customize your valuation with advanced settings.</CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={toggleAdvanced}>
+                  {showAdvanced ? "Hide Advanced" : "Show Advanced"}
+                </Button>
+              </CardHeader>
+              {showAdvanced && (
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="forecast-years">Forecast Years</Label>
+                    <Input
+                      type="number"
+                      id="forecast-years"
+                      className="h-11"
+                      value={forecastYears}
+                      onChange={handleForecastYearsChange}
+                      placeholder="5"
+                    />
                   </div>
+                  <Table>
+                    <TableCaption>Assumed Growth Rate for the next {forecastYears} years</TableCaption>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[100px]">Year</TableHead>
+                        <TableHead>Growth Rate</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {Object.entries(assumptions).map(([year, rate]) => (
+                        <TableRow key={year}>
+                          <TableCell className="font-medium">{year}</TableCell>
+                          <TableCell>
+                            <Slider
+                              defaultValue={[rate * 100]}
+                              max={10}
+                              step={0.5}
+                              onValueChange={(value) => handleAssumptionChange(year, value[0] / 100)}
+                              aria-label={year}
+                            />
+                            <span className="text-sm text-gray-500">{rate * 100}%</span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="sm" onClick={() => handleDeleteAssumption(year)}>
+                              Delete
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                    <TableFooter>
+                      <TableRow>
+                        <TableCell colSpan={3}>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" className="w-full">Add Assumption</Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-[425px]">
+                              <DialogHeader>
+                                <DialogTitle>Add New Assumption</DialogTitle>
+                                <DialogDescription>
+                                  Add a new year and growth rate assumption to the forecast.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="grid gap-4 py-4">
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                  <Label htmlFor="year" className="text-right">
+                                    Year
+                                  </Label>
+                                  <Input
+                                    type="text"
+                                    id="year"
+                                    value={newAssumptionYear}
+                                    onChange={(e) => setNewAssumptionYear(e.target.value)}
+                                    className="col-span-3 h-11"
+                                  />
+                                </div>
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                  <Label htmlFor="rate" className="text-right">
+                                    Growth Rate
+                                  </Label>
+                                  <Input
+                                    type="number"
+                                    id="rate"
+                                    value={newAssumptionRate}
+                                    onChange={(e) => setNewAssumptionRate(parseFloat(e.target.value))}
+                                    className="col-span-3 h-11"
+                                  />
+                                </div>
+                              </div>
+                              <Button type="submit" onClick={handleAddAssumption}>Add</Button>
+                            </DialogContent>
+                          </Dialog>
+                        </TableCell>
+                      </TableRow>
+                    </TableFooter>
+                  </Table>
                 </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2">
-                    <Landmark className="h-5 w-5" />
-                    Financing Details
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex justify-between py-1 border-b">
-                      <span className="text-gray-500">Down Payment:</span>
-                      <span className="font-medium">{formatCurrency(purchasePrice * (downPayment / 100))}</span>
-                    </div>
-                    <div className="flex justify-between py-1 border-b">
-                      <span className="text-gray-500">Loan Amount:</span>
-                      <span className="font-medium">{formatCurrency(purchasePrice * (1 - downPayment / 100))}</span>
-                    </div>
-                    <div className="flex justify-between py-1 border-b">
-                      <span className="text-gray-500">Interest Rate:</span>
-                      <span className="font-medium">{formatPercent(interestRate)}</span>
-                    </div>
-                    <div className="flex justify-between py-1 border-b">
-                      <span className="text-gray-500">Loan Term:</span>
-                      <span className="font-medium">{loanTerm} years</span>
-                    </div>
-                    <div className="flex justify-between py-1">
-                      <span className="text-gray-500">Annual Debt Service:</span>
-                      <span className="font-medium">
-                        {formatCurrency(
-                          Number(purchasePrice) * 
-                          (1 - Number(downPayment) / 100) * 
-                          ((Number(interestRate) / 100 / 12) * Math.pow(1 + Number(interestRate) / 100 / 12, Number(loanTerm) * 12)) / 
-                          (Math.pow(1 + Number(interestRate) / 100 / 12, Number(loanTerm) * 12) - 1) * 
-                          12
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </div>
+              )}
+            </Card>
+          </ResizablePanel>
+          <ResizableHandle className="rotate-90" />
+          <ResizablePanel defaultSize={40}>
+            <Card className="border border-gray-100 shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold text-nuvos-blue">Valuation Forecast</CardTitle>
+                <CardDescription className="text-gray-500">Forecasted property values over the next {forecastYears} years.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={forecastData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Area type="monotone" dataKey="value" stroke="#8884d8" fill="#8884d8" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card className="border border-gray-100 shadow-lg mt-6">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold text-nuvos-blue">Submit Valuation</CardTitle>
+                <CardDescription className="text-gray-500">Save this valuation for future reference.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="valuation-name">Valuation Name</Label>
+                  <Input
+                    type="text"
+                    id="valuation-name"
+                    className="h-11"
+                    value={valuationName}
+                    onChange={(e) => setValuationName(e.target.value)}
+                    placeholder="Property Valuation"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="valuation-notes">Valuation Notes</Label>
+                  <Textarea
+                    id="valuation-notes"
+                    placeholder="Enter any notes about this valuation."
+                    value={valuationNotes}
+                    onChange={(e) => setValuationNotes(e.target.value)}
+                  />
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button className="w-full bg-nuvos-teal hover:bg-nuvos-teal/90 h-12" onClick={handleSubmitValuation} disabled={isSubmitting}>
+                  {isSubmitting ? "Submitting..." : "Submit Valuation"}
+                </Button>
+              </CardFooter>
+            </Card>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
-export default PropertyCalculator;
+export default Calculator;
