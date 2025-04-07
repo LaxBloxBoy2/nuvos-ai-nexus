@@ -28,9 +28,7 @@ const AuthCallback = () => {
         const user = data.session.user;
         console.log("User authenticated:", user.id);
         
-        // Instead of trying to directly insert into the users table,
-        // call a server-side function to handle profile creation
-        // This bypasses RLS policies since server functions run with elevated privileges
+        // Call the database function to create user profile with elevated privileges
         const { data: profileData, error: profileError } = await supabase.rpc(
           'create_user_profile',
           { 
@@ -45,6 +43,7 @@ const AuthCallback = () => {
           console.error('Error creating user profile:', profileError);
           // Try to continue anyway - user might already exist
         } else {
+          console.log('Profile creation result:', profileData);
           toast.success('Account created successfully!');
         }
         
