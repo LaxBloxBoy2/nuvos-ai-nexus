@@ -78,15 +78,5 @@ export interface Document {
   created_at: string;
 }
 
-// Initialize the Supabase client
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-// Create and export Supabase client
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    storageKey: 'nuvos-auth-token'
-  }
-});
+// Re-export the supabase client from the integrations directory to avoid duplicate clients
+export { supabase } from '@/integrations/supabase/client';
