@@ -36,6 +36,11 @@ const AuthCallback = () => {
             user_email: user.email || '',
             user_name: user.user_metadata.full_name || user.email?.split('@')[0] || 'User',
             user_role: 'Investor'
+          } as {
+            user_id: string;
+            user_email: string;
+            user_name: string;
+            user_role: string;
           }
         );
         
