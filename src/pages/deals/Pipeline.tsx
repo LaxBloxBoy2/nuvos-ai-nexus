@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { DropResult } from "react-beautiful-dnd";
-import { Search, PlusCircle, Filter, ChevronDown } from "lucide-react";
+import { Search, PlusCircle, Filter, ChevronDown, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -31,6 +31,8 @@ const Pipeline = () => {
   });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedStage, setSelectedStage] = useState<"Screening" | "Due Diligence" | "Negotiation" | "Closing">("Screening");
+  const [isFiltering, setIsFiltering] = useState(false);
+  const [filterType, setFilterType] = useState<string | null>(null);
 
   const { user, profile } = useAuth();
   const { deals, loadingDeals, createDeal, updateDeal, refreshData } = useData();
@@ -47,6 +49,12 @@ const Pipeline = () => {
           if (!acc[deal.status]) {
             acc[deal.status] = [];
           }
+          
+          // Apply filtering if active
+          if (isFiltering && filterType && deal.property_type !== filterType) {
+            return acc;
+          }
+          
           acc[deal.status].push(deal);
         }
         return acc;
@@ -59,7 +67,7 @@ const Pipeline = () => {
       
       setDealsByStage(grouped);
     }
-  }, [deals]);
+  }, [deals, isFiltering, filterType]);
 
   const handleDragEnd = async (result: DropResult) => {
     const { source, destination, draggableId } = result;
@@ -109,6 +117,7 @@ const Pipeline = () => {
       } else {
         // Revert the change if update failed
         refreshData(['deals']);
+        toast.error("Failed to update deal status");
       }
     } else {
       // Just reordering within the same stage (only update local state)
@@ -167,9 +176,31 @@ const Pipeline = () => {
     if (newDealId) {
       // Close dialog
       setIsDialogOpen(false);
-      
+      toast.success("Deal created successfully");
       // Update deal list
       await refreshData(['deals']);
+    }
+  };
+
+  // Property types for filtering
+  const propertyTypes = [
+    "Multifamily", 
+    "Industrial", 
+    "Office", 
+    "Retail", 
+    "Medical Office", 
+    "Mixed Use",
+    "Land",
+    "Other"
+  ];
+
+  const toggleFilter = (type: string) => {
+    if (filterType === type) {
+      setIsFiltering(false);
+      setFilterType(null);
+    } else {
+      setIsFiltering(true);
+      setFilterType(type);
     }
   };
 
@@ -181,11 +212,28 @@ const Pipeline = () => {
           <p className="text-gray-500">Track and manage your active deals across stages</p>
         </div>
         <div className="mt-4 md:mt-0 flex flex-col sm:flex-row gap-3">
-          <Button variant="outline" className="flex items-center gap-1">
-            <Filter size={16} />
-            Filter
-            <ChevronDown size={14} />
-          </Button>
+          <div className="relative group">
+            <Button variant="outline" className="flex items-center gap-1">
+              <Filter size={16} />
+              Filter
+              <ChevronDown size={14} />
+            </Button>
+            
+            <div className="absolute right-0 mt-2 w-56 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 bg-white p-2 rounded shadow-lg border z-50">
+              <div className="text-sm font-medium p-2 text-gray-700">Property Type</div>
+              <div className="space-y-1 p-1">
+                {propertyTypes.map(type => (
+                  <div 
+                    key={type} 
+                    className={`px-3 py-2 text-sm rounded cursor-pointer hover:bg-gray-100 ${filterType === type ? 'bg-blue-50 text-blue-700' : ''}`}
+                    onClick={() => toggleFilter(type)}
+                  >
+                    {type}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
           
           <Button 
             className="bg-nuvos-teal hover:bg-nuvos-teal/90 flex items-center gap-1"
@@ -243,7 +291,13 @@ const Pipeline = () => {
 
           <TabsContent value="list">
             <ListView
-              deals={deals}
+              deals={deals.filter(deal => 
+                (deal.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                deal.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                deal.city?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                deal.property_type?.toLowerCase().includes(searchQuery.toLowerCase())) &&
+                (!isFiltering || deal.property_type === filterType)
+              )}
               loadingDeals={loadingDeals}
               searchQuery={searchQuery}
               getPropertyTypeColor={getPropertyTypeColor}

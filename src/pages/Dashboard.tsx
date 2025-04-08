@@ -1,5 +1,5 @@
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { 
   Card, 
@@ -18,7 +18,8 @@ import {
   Calendar,
   CheckCircle2,
   AlertCircle,
-  MapPin
+  MapPin,
+  Loader2
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -26,17 +27,46 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useData } from "@/contexts/DataContext";
 import { CartesianGrid, LineChart as RechartsLineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart as RechartsBarChart, Bar } from "recharts";
+import { toast } from "sonner";
 
 const Dashboard = () => {
   const { user, profile } = useAuth();
   const { deals, properties, tasks, loadingDeals, loadingProperties, loadingTasks, refreshData } = useData();
+  const [performanceData, setPerformanceData] = useState([]);
+  const [loadingPerformance, setLoadingPerformance] = useState(false);
   
   useEffect(() => {
-    refreshData();
+    // Fetch all required data when the component mounts
+    refreshData(['deals', 'properties', 'tasks']);
+    fetchPerformanceData();
   }, []);
 
+  // Fetch performance metrics
+  const fetchPerformanceData = async () => {
+    setLoadingPerformance(true);
+    try {
+      // For now we'll use mock data since the performance_metrics table doesn't exist yet
+      // In a real implementation, you would fetch this from Supabase
+      const mockData = [
+        { month: 'Jan', value: 12 },
+        { month: 'Feb', value: 19 },
+        { month: 'Mar', value: 15 },
+        { month: 'Apr', value: 25 },
+        { month: 'May', value: 32 },
+        { month: 'Jun', value: 28 },
+        { month: 'Jul', value: 35 },
+      ];
+      setPerformanceData(mockData);
+    } catch (error) {
+      console.error('Error fetching performance data:', error);
+      toast.error('Failed to load performance data');
+    } finally {
+      setLoadingPerformance(false);
+    }
+  };
+  
   // Count deals by status
-  const dealsByStatus = deals.reduce((acc: Record<string, number>, deal) => {
+  const dealsByStatus = deals.reduce((acc, deal) => {
     acc[deal.status] = (acc[deal.status] || 0) + 1;
     return acc;
   }, {});
@@ -50,7 +80,7 @@ const Dashboard = () => {
   ];
   
   // Get property types distribution
-  const propertyTypeCount = properties.reduce((acc: Record<string, number>, property) => {
+  const propertyTypeCount = properties.reduce((acc, property) => {
     acc[property.property_type] = (acc[property.property_type] || 0) + 1;
     return acc;
   }, {});
@@ -59,17 +89,6 @@ const Dashboard = () => {
     name: type,
     count: propertyTypeCount[type]
   }));
-  
-  // Performance data (mock for now, would be replaced with actual data)
-  const performanceData = [
-    { month: 'Jan', value: 12 },
-    { month: 'Feb', value: 19 },
-    { month: 'Mar', value: 15 },
-    { month: 'Apr', value: 25 },
-    { month: 'May', value: 32 },
-    { month: 'Jun', value: 28 },
-    { month: 'Jul', value: 35 },
-  ];
   
   // Get upcoming tasks
   const upcomingTasks = tasks
@@ -82,7 +101,7 @@ const Dashboard = () => {
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 5);
   
-  const getInitials = (name: string) => {
+  const getInitials = (name) => {
     return name
       .split(' ')
       .map(n => n[0])
@@ -90,7 +109,7 @@ const Dashboard = () => {
       .toUpperCase();
   };
   
-  const getPropertyTypeColor = (type: string) => {
+  const getPropertyTypeColor = (type) => {
     switch (type) {
       case "Multifamily":
         return "bg-blue-100 text-blue-800";
@@ -107,7 +126,7 @@ const Dashboard = () => {
     }
   };
   
-  const getPriorityStyles = (priority?: string) => {
+  const getPriorityStyles = (priority) => {
     switch (priority) {
       case "High":
         return "w-2 h-2 bg-red-500 rounded-full";
@@ -120,7 +139,7 @@ const Dashboard = () => {
     }
   };
   
-  const getTaskStatusColor = (status: string) => {
+  const getTaskStatusColor = (status) => {
     switch (status) {
       case "Not Started":
         return "bg-gray-100 text-gray-800";
@@ -132,6 +151,15 @@ const Dashboard = () => {
         return "bg-gray-100 text-gray-800";
     }
   };
+
+  // Loading placeholders
+  const LoadingPlaceholder = ({ count = 3 }) => (
+    <div className="space-y-4">
+      {[...Array(count)].map((_, i) => (
+        <div key={i} className="h-20 bg-gray-100 animate-pulse rounded-lg"></div>
+      ))}
+    </div>
+  );
 
   return (
     <div className="p-6 md:p-10 max-w-7xl mx-auto">
@@ -230,9 +258,9 @@ const Dashboard = () => {
           <CardContent>
             {loadingDeals ? (
               <div className="h-80 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-nuvos-teal"></div>
+                <Loader2 className="h-12 w-12 animate-spin text-nuvos-teal" />
               </div>
-            ) : (
+            ) : dealsData.some(d => d.count > 0) ? (
               <ResponsiveContainer width="100%" height={300}>
                 <RechartsBarChart data={dealsData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -242,6 +270,17 @@ const Dashboard = () => {
                   <Bar dataKey="count" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
                 </RechartsBarChart>
               </ResponsiveContainer>
+            ) : (
+              <div className="h-80 flex flex-col items-center justify-center">
+                <Building className="h-16 w-16 text-gray-300 mb-2" />
+                <p className="text-gray-500">No deals yet</p>
+                <Link to="/deals/pipeline" className="mt-4">
+                  <Button className="bg-nuvos-teal hover:bg-nuvos-teal/90">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add First Deal
+                  </Button>
+                </Link>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -255,15 +294,21 @@ const Dashboard = () => {
             <CardDescription>Year-to-date performance metrics</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <RechartsLineChart data={performanceData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} />
-              </RechartsLineChart>
-            </ResponsiveContainer>
+            {loadingPerformance ? (
+              <div className="h-80 flex items-center justify-center">
+                <Loader2 className="h-12 w-12 animate-spin text-nuvos-teal" />
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <RechartsLineChart data={performanceData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} />
+                </RechartsLineChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -281,11 +326,7 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             {loadingDeals ? (
-              <div className="space-y-4">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="h-20 bg-gray-100 animate-pulse rounded-lg"></div>
-                ))}
-              </div>
+              <LoadingPlaceholder count={3} />
             ) : recentDeals.length > 0 ? (
               <div className="space-y-4">
                 {recentDeals.map((deal) => (
@@ -300,19 +341,19 @@ const Dashboard = () => {
                           <h4 className="font-medium">{deal.name}</h4>
                           <div className="flex items-center gap-1 text-gray-500 text-xs mb-2">
                             <MapPin size={12} />
-                            <span>Austin, TX</span>
+                            <span>{deal.city || 'N/A'}, {deal.state || 'N/A'}</span>
                           </div>
                           <div className="flex gap-3">
-                            <Badge className={getPropertyTypeColor("Multifamily")}>
-                              Multifamily
+                            <Badge className={getPropertyTypeColor(deal.property_type || "Other")}>
+                              {deal.property_type || "Other"}
                             </Badge>
                             <Badge variant="outline">{deal.status}</Badge>
                           </div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-medium">{deal.price}</div>
-                        <div className="text-xs text-gray-500">Cap Rate: {deal.cap_rate}</div>
+                        <div className="font-medium">{deal.price || 'N/A'}</div>
+                        <div className="text-xs text-gray-500">Cap Rate: {deal.cap_rate || 'N/A'}</div>
                       </div>
                     </div>
                   </div>
@@ -346,11 +387,7 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             {loadingTasks ? (
-              <div className="space-y-4">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="h-16 bg-gray-100 animate-pulse rounded-lg"></div>
-                ))}
-              </div>
+              <LoadingPlaceholder count={3} />
             ) : upcomingTasks.length > 0 ? (
               <div className="space-y-2">
                 {upcomingTasks.map((task) => (
