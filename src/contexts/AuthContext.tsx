@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session, User, AuthError } from '@supabase/supabase-js';
 import { useNavigate } from 'react-router-dom';
@@ -28,65 +29,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    console.log("AuthProvider initializing...");
-    
-    // First set up the auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
-        console.log("Auth state changed:", event, currentSession?.user?.id);
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-        
-        if (event === 'SIGNED_IN' && currentSession?.user) {
-          console.log("User signed in, fetching profile for:", currentSession.user.id);
-          await fetchProfile(currentSession.user.id);
-        } else if (event === 'SIGNED_OUT') {
-          console.log("User signed out, clearing profile");
-          setProfile(null);
-        }
-        
-        setLoading(false);
-      }
-    );
-
-    // Then check for existing session
-    const initializeAuth = async () => {
-      try {
-        console.log("Getting initial session");
-        const { data, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error("Error getting session:", error);
-          setLoading(false);
-          return;
-        }
-        
-        const initialSession = data.session;
-        console.log("Initial session:", initialSession?.user?.id || "No session");
-        
-        setSession(initialSession);
-        setUser(initialSession?.user ?? null);
-        
-        if (initialSession?.user) {
-          await fetchProfile(initialSession.user.id);
-        }
-      } catch (error) {
-        console.error("Unexpected error during auth initialization:", error);
-      } finally {
-        // Ensure loading is set to false even if there's an error
-        setLoading(false);
-      }
-    };
-
-    initializeAuth();
-
-    return () => {
-      console.log("Cleaning up auth listener");
-      subscription.unsubscribe();
-    };
-  }, []);
-
   // Fetch user profile from the database with better error handling
   const fetchProfile = async (userId: string) => {
     try {
@@ -95,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from('users')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching user profile:', error);
@@ -111,9 +53,80 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  useEffect(() => {
+    console.log("AuthProvider initializing...");
+    let authListener: { subscription: { unsubscribe: () => void } } | null = null;
+    
+    const initializeAuth = async () => {
+      try {
+        // First set up the auth state listener BEFORE checking session
+        authListener = supabase.auth.onAuthStateChange(
+          (event, currentSession) => {
+            console.log("Auth state changed:", event, currentSession?.user?.id);
+            
+            // Use synchronous state updates only within the callback
+            if (currentSession) {
+              setSession(currentSession);
+              setUser(currentSession.user);
+              
+              // Schedule async operations outside the callback using setTimeout(0)
+              if (currentSession.user) {
+                setTimeout(() => {
+                  fetchProfile(currentSession.user.id);
+                }, 0);
+              }
+            } else {
+              setSession(null);
+              setUser(null);
+              setProfile(null);
+            }
+            
+            setLoading(false);
+          }
+        );
+
+        // Then check for existing session
+        console.log("Getting initial session");
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Error getting session:", error);
+          toast.error("Authentication error: " + error.message);
+          setLoading(false);
+          return;
+        }
+        
+        const initialSession = data.session;
+        console.log("Initial session:", initialSession?.user?.id || "No session");
+        
+        if (initialSession) {
+          setSession(initialSession);
+          setUser(initialSession.user);
+          await fetchProfile(initialSession.user.id);
+        }
+        
+        setLoading(false);
+      } catch (error) {
+        console.error("Unexpected error during auth initialization:", error);
+        toast.error("Failed to initialize authentication. Please refresh the page.");
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
+
+    return () => {
+      console.log("Cleaning up auth listener");
+      if (authListener) {
+        authListener.subscription.unsubscribe();
+      }
+    };
+  }, []);
+
   // Sign in with email and password
   const signIn = async (email: string, password: string) => {
     try {
+      setLoading(true);
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       
       if (!error) {
@@ -130,10 +143,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
       
+      setLoading(false);
       return { error };
     } catch (error) {
       console.error('Sign in error:', error);
       toast.error('An unexpected error occurred. Please try again later.');
+      setLoading(false);
       return { error: error as AuthError };
     }
   };
@@ -141,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Sign up with email and password
   const signUp = async (email: string, password: string, name: string, role: UserRole) => {
     try {
+      setLoading(true);
       const { data, error } = await supabase.auth.signUp({ 
         email, 
         password,
@@ -161,6 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           toast.error(`Sign up error: ${error.message}`);
         }
+        setLoading(false);
         return { error };
       }
       
@@ -171,10 +188,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         navigate('/login');
       }
       
+      setLoading(false);
       return { error: null };
     } catch (error) {
       console.error('Sign up error:', error);
       toast.error('An unexpected error occurred. Please try again later.');
+      setLoading(false);
       return { error: error as AuthError };
     }
   };
@@ -182,6 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Sign in with Google
   const signInWithGoogle = async () => {
     try {
+      setLoading(true);
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -191,29 +211,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (error) {
         toast.error(`Google sign-in error: ${error.message}`);
+        setLoading(false);
         throw error;
       }
     } catch (error) {
       console.error('Google sign in error:', error);
       toast.error('Failed to sign in with Google. Please try again later.');
+      setLoading(false);
     }
   };
 
   // Sign out
   const signOut = async () => {
     try {
+      setLoading(true);
       await supabase.auth.signOut();
       navigate('/login');
       toast.success('Signed out successfully');
+      setLoading(false);
     } catch (error) {
       console.error('Sign out error:', error);
       toast.error('Failed to sign out');
+      setLoading(false);
     }
   };
 
   // Forgot password
   const forgotPassword = async (email: string) => {
     try {
+      setLoading(true);
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
@@ -224,10 +250,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         toast.error(`Error sending reset link: ${error.message}`);
       }
       
+      setLoading(false);
       return { error };
     } catch (error) {
       console.error('Forgot password error:', error);
       toast.error('An unexpected error occurred. Please try again later.');
+      setLoading(false);
       return { error: error as AuthError };
     }
   };
@@ -235,6 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Reset password
   const resetPassword = async (password: string) => {
     try {
+      setLoading(true);
       const { error } = await supabase.auth.updateUser({
         password
       });
@@ -246,10 +275,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         toast.error(`Error resetting password: ${error.message}`);
       }
       
+      setLoading(false);
       return { error };
     } catch (error) {
       console.error('Reset password error:', error);
       toast.error('An unexpected error occurred. Please try again later.');
+      setLoading(false);
       return { error: error as AuthError };
     }
   };
