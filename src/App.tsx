@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { DataProvider } from "@/contexts/DataContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
@@ -20,7 +20,25 @@ import Calculator from "./pages/valuation/Calculator";
 import AiSummaries from "./pages/insights/AiSummaries";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+// Create a new QueryClient with better error handling
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 30000,
+      onError: (error) => {
+        console.error("Query error:", error);
+      },
+    },
+    mutations: {
+      retry: 1,
+      onError: (error) => {
+        console.error("Mutation error:", error);
+      },
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -64,6 +82,11 @@ const App = () => (
                     <Calculator />
                   </AppLayout>
                 </ProtectedRoute>
+              } />
+              
+              {/* Redirect for incorrect valuation/development route to calculator */}
+              <Route path="/valuation/development" element={
+                <Navigate to="/valuation/calculator" replace />
               } />
               
               {/* Insights Routes */}

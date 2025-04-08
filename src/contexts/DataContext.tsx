@@ -71,55 +71,89 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const clearError = () => setError(null);
   
+  // Log when data provider is initialized
+  useEffect(() => {
+    console.log("DataProvider initialized, user:", user?.id || "none");
+  }, []);
+  
   // Load data when user changes
   useEffect(() => {
     if (user) {
-      refreshData();
+      console.log("User available in DataContext, loading data for:", user.id);
+      refreshData().catch(err => {
+        console.error("Initial data loading failed:", err);
+        setError("Failed to load initial data. Please refresh the page.");
+        toast.error("Failed to load data");
+      });
+    } else {
+      console.log("No user in DataContext, skipping data loading");
     }
   }, [user]);
   
-  // Fetch all data
+  // Fetch all data with better error handling
   const refreshData = useCallback(async (
     dataTypes: ('properties' | 'deals' | 'tasks' | 'documents' | 'valuations')[] = [
       'properties', 'deals', 'tasks', 'documents', 'valuations'
     ]
   ) => {
-    if (!user) return;
+    if (!user) {
+      console.log("No user available for refreshData");
+      return;
+    }
     
+    console.log("Refreshing data types:", dataTypes);
     clearError();
 
     const fetchPromises = [];
     
     if (dataTypes.includes('properties')) {
-      fetchPromises.push(fetchProperties());
+      fetchPromises.push(fetchProperties().catch(err => {
+        console.error("Error fetching properties:", err);
+        return null; // Continue with other fetches even if one fails
+      }));
     }
     
     if (dataTypes.includes('deals')) {
-      fetchPromises.push(fetchDeals());
+      fetchPromises.push(fetchDeals().catch(err => {
+        console.error("Error fetching deals:", err);
+        return null;
+      }));
     }
     
     if (dataTypes.includes('tasks')) {
-      fetchPromises.push(fetchTasks());
+      fetchPromises.push(fetchTasks().catch(err => {
+        console.error("Error fetching tasks:", err);
+        return null;
+      }));
     }
     
     if (dataTypes.includes('documents')) {
-      fetchPromises.push(fetchDocuments());
+      fetchPromises.push(fetchDocuments().catch(err => {
+        console.error("Error fetching documents:", err);
+        return null;
+      }));
     }
     
     if (dataTypes.includes('valuations')) {
-      fetchPromises.push(fetchValuations());
+      fetchPromises.push(fetchValuations().catch(err => {
+        console.error("Error fetching valuations:", err);
+        return null;
+      }));
     }
 
     try {
-      await Promise.all(fetchPromises);
+      await Promise.allSettled(fetchPromises);
+      console.log("Data refresh complete");
     } catch (err) {
-      console.error("Error refreshing data:", err);
-      setError("Failed to refresh data. Please try again.");
+      console.error("Error during data refresh:", err);
+      setError("Some data could not be refreshed. You may see partial information.");
+      toast.error("Data refresh partially failed");
     }
   }, [user]);
   
-  // Properties CRUD
+  // Properties CRUD with better error handling
   const fetchProperties = async () => {
+    console.log("Fetching properties...");
     try {
       setLoadingProperties(true);
       const { data, error } = await supabase
@@ -127,8 +161,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         .select('*')
         .order('created_at', { ascending: false });
         
-      if (error) throw error;
-      setProperties(data as Property[]);
+      if (error) {
+        console.error('Supabase error fetching properties:', error);
+        throw error;
+      }
+      
+      console.log(`Fetched ${data?.length || 0} properties`);
+      setProperties(data as Property[] || []);
+      return data;
     } catch (error) {
       console.error('Error fetching properties:', error);
       toast.error('Failed to load properties');
@@ -234,8 +274,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
   
-  // Deals CRUD
+  // Deals CRUD with better error handling
   const fetchDeals = async () => {
+    console.log("Fetching deals...");
     try {
       setLoadingDeals(true);
       const { data, error } = await supabase
@@ -243,8 +284,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         .select('*')
         .order('created_at', { ascending: false });
         
-      if (error) throw error;
-      setDeals(data as Deal[]);
+      if (error) {
+        console.error('Supabase error fetching deals:', error);
+        throw error;
+      }
+      
+      console.log(`Fetched ${data?.length || 0} deals`);
+      setDeals(data as Deal[] || []);
+      return data;
     } catch (error) {
       console.error('Error fetching deals:', error);
       toast.error('Failed to load deals');
@@ -357,8 +404,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
   
-  // Tasks CRUD
+  // Tasks CRUD with better error handling
   const fetchTasks = async () => {
+    console.log("Fetching tasks...");
     try {
       setLoadingTasks(true);
       const { data, error } = await supabase
@@ -366,8 +414,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         .select('*')
         .order('due_date', { ascending: true });
         
-      if (error) throw error;
-      setTasks(data as Task[]);
+      if (error) {
+        console.error('Supabase error fetching tasks:', error);
+        throw error;
+      }
+      
+      console.log(`Fetched ${data?.length || 0} tasks`);
+      setTasks(data as Task[] || []);
+      return data;
     } catch (error) {
       console.error('Error fetching tasks:', error);
       toast.error('Failed to load tasks');
@@ -446,8 +500,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
   
-  // Documents CRUD
+  // Documents CRUD with better error handling
   const fetchDocuments = async () => {
+    console.log("Fetching documents...");
     try {
       setLoadingDocuments(true);
       const { data, error } = await supabase
@@ -455,8 +510,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         .select('*')
         .order('created_at', { ascending: false });
         
-      if (error) throw error;
-      setDocuments(data as Document[]);
+      if (error) {
+        console.error('Supabase error fetching documents:', error);
+        throw error;
+      }
+      
+      console.log(`Fetched ${data?.length || 0} documents`);
+      setDocuments(data as Document[] || []);
+      return data;
     } catch (error) {
       console.error('Error fetching documents:', error);
       toast.error('Failed to load documents');
@@ -508,8 +569,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
   
-  // Valuations CRUD
+  // Valuations CRUD with better error handling
   const fetchValuations = async () => {
+    console.log("Fetching valuations...");
     try {
       setLoadingValuations(true);
       const { data, error } = await supabase
@@ -517,8 +579,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         .select('*')
         .order('created_at', { ascending: false });
         
-      if (error) throw error;
-      setValuations(data as Valuation[]);
+      if (error) {
+        console.error('Supabase error fetching valuations:', error);
+        throw error;
+      }
+      
+      console.log(`Fetched ${data?.length || 0} valuations`);
+      setValuations(data as Valuation[] || []);
+      return data;
     } catch (error) {
       console.error('Error fetching valuations:', error);
       toast.error('Failed to load valuations');
@@ -571,8 +639,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return true;
     } catch (error) {
       console.error('Error updating valuation:', error);
-      toast.error('Failed to update valuation');
-      setError('Failed to update valuation');
+      toast.error('Failed to create valuation');
+      setError('Failed to create valuation');
       return false;
     }
   };
