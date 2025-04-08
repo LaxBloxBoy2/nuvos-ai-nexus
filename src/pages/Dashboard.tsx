@@ -30,10 +30,16 @@ import { CartesianGrid, LineChart as RechartsLineChart, Line, XAxis, YAxis, Tool
 import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
 
+// Define performance metrics interface
+interface PerformanceData {
+  month: string;
+  value: number;
+}
+
 const Dashboard = () => {
   const { user, profile } = useAuth();
   const { deals, properties, tasks, loadingDeals, loadingProperties, loadingTasks, refreshData } = useData();
-  const [performanceData, setPerformanceData] = useState([]);
+  const [performanceData, setPerformanceData] = useState<PerformanceData[]>([]);
   const [loadingPerformance, setLoadingPerformance] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -41,8 +47,10 @@ const Dashboard = () => {
     // Fetch all required data when the component mounts
     const fetchAllData = async () => {
       try {
+        console.log("Dashboard: Fetching data...");
         await refreshData(['deals', 'properties', 'tasks']);
         await fetchPerformanceData();
+        console.log("Dashboard: Data fetching complete");
       } catch (err) {
         console.error("Error fetching dashboard data:", err);
         setError("Failed to load dashboard data. Please refresh the page.");
@@ -51,12 +59,13 @@ const Dashboard = () => {
     };
 
     fetchAllData();
-  }, []);
+  }, [refreshData]);
 
   // Fetch performance metrics
   const fetchPerformanceData = async () => {
     setLoadingPerformance(true);
     try {
+      console.log("Dashboard: Fetching performance data...");
       // For now we'll use mock data since the performance_metrics table doesn't exist yet
       // In a real implementation, you would fetch this from Supabase
       const mockData = [
@@ -68,7 +77,12 @@ const Dashboard = () => {
         { month: 'Jun', value: 28 },
         { month: 'Jul', value: 35 },
       ];
+      
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       setPerformanceData(mockData);
+      console.log("Dashboard: Performance data loaded", mockData);
     } catch (error) {
       console.error('Error fetching performance data:', error);
       toast.error('Failed to load performance data');
@@ -82,7 +96,7 @@ const Dashboard = () => {
   const dealsByStatus = deals.reduce((acc, deal) => {
     acc[deal.status] = (acc[deal.status] || 0) + 1;
     return acc;
-  }, {});
+  }, {} as Record<string, number>);
   
   const dealsData = [
     { name: 'Screening', count: dealsByStatus['Screening'] || 0 },
@@ -96,7 +110,7 @@ const Dashboard = () => {
   const propertyTypeCount = properties.reduce((acc, property) => {
     acc[property.property_type] = (acc[property.property_type] || 0) + 1;
     return acc;
-  }, {});
+  }, {} as Record<string, number>);
   
   const propertyData = Object.keys(propertyTypeCount).map(type => ({
     name: type,
@@ -114,7 +128,8 @@ const Dashboard = () => {
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 5);
   
-  const getInitials = (name) => {
+  const getInitials = (name: string) => {
+    if (!name) return 'U';
     return name
       .split(' ')
       .map(n => n[0])
@@ -122,7 +137,7 @@ const Dashboard = () => {
       .toUpperCase();
   };
   
-  const getPropertyTypeColor = (type) => {
+  const getPropertyTypeColor = (type?: string) => {
     switch (type) {
       case "Multifamily":
         return "bg-blue-100 text-blue-800";
@@ -139,7 +154,7 @@ const Dashboard = () => {
     }
   };
   
-  const getPriorityStyles = (priority) => {
+  const getPriorityStyles = (priority?: string) => {
     switch (priority) {
       case "High":
         return "w-2 h-2 bg-red-500 rounded-full";
@@ -152,7 +167,7 @@ const Dashboard = () => {
     }
   };
   
-  const getTaskStatusColor = (status) => {
+  const getTaskStatusColor = (status: string) => {
     switch (status) {
       case "Not Started":
         return "bg-gray-100 text-gray-800";
@@ -186,7 +201,7 @@ const Dashboard = () => {
   }
 
   // Loading placeholder
-  const LoadingPlaceholder = ({ count = 3 }) => (
+  const LoadingPlaceholder = ({ count = 3 }: { count?: number }) => (
     <div className="space-y-4">
       {[...Array(count)].map((_, i) => (
         <div key={i} className="h-20 bg-gray-100 animate-pulse rounded-lg"></div>
@@ -390,7 +405,7 @@ const Dashboard = () => {
                             <span>{deal.city || 'N/A'}, {deal.state || 'N/A'}</span>
                           </div>
                           <div className="flex gap-3">
-                            <Badge className={getPropertyTypeColor(deal.property_type || "Other")}>
+                            <Badge className={getPropertyTypeColor(deal.property_type)}>
                               {deal.property_type || "Other"}
                             </Badge>
                             <Badge variant="outline">{deal.status}</Badge>
