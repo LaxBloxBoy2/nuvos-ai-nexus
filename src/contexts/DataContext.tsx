@@ -1,5 +1,4 @@
-
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { supabase, Property, Deal, Task, Document, Valuation } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
@@ -43,6 +42,10 @@ interface DataContextType {
   
   // Data loading
   refreshData: (dataTypes?: ('properties' | 'deals' | 'tasks' | 'documents' | 'valuations')[]) => Promise<void>;
+
+  // Error state
+  error: string | null;
+  clearError: () => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -63,6 +66,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
   const [loadingValuations, setLoadingValuations] = useState(false);
+
+  // Error state
+  const [error, setError] = useState<string | null>(null);
+  const clearError = () => setError(null);
   
   // Load data when user changes
   useEffect(() => {
@@ -72,33 +79,44 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [user]);
   
   // Fetch all data
-  const refreshData = async (
+  const refreshData = useCallback(async (
     dataTypes: ('properties' | 'deals' | 'tasks' | 'documents' | 'valuations')[] = [
       'properties', 'deals', 'tasks', 'documents', 'valuations'
     ]
   ) => {
     if (!user) return;
     
+    clearError();
+
+    const fetchPromises = [];
+    
     if (dataTypes.includes('properties')) {
-      await fetchProperties();
+      fetchPromises.push(fetchProperties());
     }
     
     if (dataTypes.includes('deals')) {
-      await fetchDeals();
+      fetchPromises.push(fetchDeals());
     }
     
     if (dataTypes.includes('tasks')) {
-      await fetchTasks();
+      fetchPromises.push(fetchTasks());
     }
     
     if (dataTypes.includes('documents')) {
-      await fetchDocuments();
+      fetchPromises.push(fetchDocuments());
     }
     
     if (dataTypes.includes('valuations')) {
-      await fetchValuations();
+      fetchPromises.push(fetchValuations());
     }
-  };
+
+    try {
+      await Promise.all(fetchPromises);
+    } catch (err) {
+      console.error("Error refreshing data:", err);
+      setError("Failed to refresh data. Please try again.");
+    }
+  }, [user]);
   
   // Properties CRUD
   const fetchProperties = async () => {
@@ -114,6 +132,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error fetching properties:', error);
       toast.error('Failed to load properties');
+      setError('Failed to load properties');
+      throw error;
     } finally {
       setLoadingProperties(false);
     }
@@ -136,12 +156,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
         
       if (error) throw error;
       
-      await fetchProperties();
+      // Optimistically update local state
+      setProperties(prev => [{
+        ...newProperty,
+        id: data.id,
+        created_at: new Date().toISOString()
+      } as Property, ...prev]);
+      
       toast.success('Property created successfully');
       return data.id;
     } catch (error) {
       console.error('Error creating property:', error);
       toast.error('Failed to create property');
+      setError('Failed to create property');
       return null;
     }
   };
@@ -161,6 +188,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error updating property:', error);
       toast.error('Failed to update property');
+      setError('Failed to update property');
       return false;
     }
   };
@@ -185,6 +213,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error deleting property:', error);
       toast.error('Failed to delete property');
+      setError('Failed to delete property');
       return false;
     }
   };
@@ -219,6 +248,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error fetching deals:', error);
       toast.error('Failed to load deals');
+      setError('Failed to load deals');
+      throw error;
     } finally {
       setLoadingDeals(false);
     }
@@ -241,18 +272,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
         
       if (error) throw error;
       
-      await fetchDeals();
+      // Optimistically update local state
+      setDeals(prev => [{
+        ...newDeal,
+        id: data.id,
+        created_at: new Date().toISOString()
+      } as Deal, ...prev]);
+      
       toast.success('Deal created successfully');
       return data.id;
     } catch (error) {
       console.error('Error creating deal:', error);
       toast.error('Failed to create deal');
+      setError('Failed to create deal');
       return null;
     }
   };
   
   const updateDeal = async (id: string, deal: Partial<Deal>): Promise<boolean> => {
     try {
+      // Optimistically update local state first
+      setDeals(prev => prev.map(d => 
+        d.id === id ? { ...d, ...deal } as Deal : d
+      ));
+      
       const { error } = await supabase
         .from('deals')
         .update(deal)
@@ -260,12 +303,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
         
       if (error) throw error;
       
-      await fetchDeals();
       toast.success('Deal updated successfully');
       return true;
     } catch (error) {
       console.error('Error updating deal:', error);
       toast.error('Failed to update deal');
+      setError('Failed to update deal');
+      
+      // Revert optimistic update
+      fetchDeals();
       return false;
     }
   };
@@ -290,6 +336,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error deleting deal:', error);
       toast.error('Failed to delete deal');
+      setError('Failed to delete deal');
       return false;
     }
   };
@@ -324,6 +371,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error fetching tasks:', error);
       toast.error('Failed to load tasks');
+      setError('Failed to load tasks');
+      throw error;
     } finally {
       setLoadingTasks(false);
     }
@@ -352,6 +401,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error creating task:', error);
       toast.error('Failed to create task');
+      setError('Failed to create task');
       return null;
     }
   };
@@ -371,6 +421,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error updating task:', error);
       toast.error('Failed to update task');
+      setError('Failed to update task');
       return false;
     }
   };
@@ -390,6 +441,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error deleting task:', error);
       toast.error('Failed to delete task');
+      setError('Failed to delete task');
       return false;
     }
   };
@@ -408,6 +460,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error fetching documents:', error);
       toast.error('Failed to load documents');
+      setError('Failed to load documents');
+      throw error;
     } finally {
       setLoadingDocuments(false);
     }
@@ -429,6 +483,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error creating document:', error);
       toast.error('Failed to create document');
+      setError('Failed to create document');
       return null;
     }
   };
@@ -448,6 +503,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error deleting document:', error);
       toast.error('Failed to delete document');
+      setError('Failed to delete document');
       return false;
     }
   };
@@ -466,6 +522,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error fetching valuations:', error);
       toast.error('Failed to load valuations');
+      setError('Failed to load valuations');
+      throw error;
     } finally {
       setLoadingValuations(false);
     }
@@ -494,6 +552,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error creating valuation:', error);
       toast.error('Failed to create valuation');
+      setError('Failed to create valuation');
       return null;
     }
   };
@@ -513,6 +572,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error updating valuation:', error);
       toast.error('Failed to update valuation');
+      setError('Failed to update valuation');
       return false;
     }
   };
@@ -532,6 +592,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error deleting valuation:', error);
       toast.error('Failed to delete valuation');
+      setError('Failed to delete valuation');
       return false;
     }
   };
@@ -574,7 +635,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     deleteValuation,
     
     // Refresh data
-    refreshData
+    refreshData,
+    
+    // Error state
+    error,
+    clearError
   };
 
   return (

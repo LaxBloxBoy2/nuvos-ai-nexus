@@ -28,17 +28,29 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useData } from "@/contexts/DataContext";
 import { CartesianGrid, LineChart as RechartsLineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart as RechartsBarChart, Bar } from "recharts";
 import { toast } from "sonner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const Dashboard = () => {
   const { user, profile } = useAuth();
   const { deals, properties, tasks, loadingDeals, loadingProperties, loadingTasks, refreshData } = useData();
   const [performanceData, setPerformanceData] = useState([]);
   const [loadingPerformance, setLoadingPerformance] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
     // Fetch all required data when the component mounts
-    refreshData(['deals', 'properties', 'tasks']);
-    fetchPerformanceData();
+    const fetchAllData = async () => {
+      try {
+        await refreshData(['deals', 'properties', 'tasks']);
+        await fetchPerformanceData();
+      } catch (err) {
+        console.error("Error fetching dashboard data:", err);
+        setError("Failed to load dashboard data. Please refresh the page.");
+        toast.error("Failed to load dashboard data");
+      }
+    };
+
+    fetchAllData();
   }, []);
 
   // Fetch performance metrics
@@ -60,6 +72,7 @@ const Dashboard = () => {
     } catch (error) {
       console.error('Error fetching performance data:', error);
       toast.error('Failed to load performance data');
+      setError('Failed to load performance data');
     } finally {
       setLoadingPerformance(false);
     }
@@ -152,7 +165,27 @@ const Dashboard = () => {
     }
   };
 
-  // Loading placeholders
+  // Error state
+  if (error) {
+    return (
+      <div className="p-6 flex flex-col items-center justify-center min-h-[60vh]">
+        <AlertCircle className="h-16 w-16 text-red-500 mb-4" />
+        <h2 className="text-2xl font-bold mb-2">Something went wrong</h2>
+        <p className="text-gray-500 mb-6">{error}</p>
+        <Button 
+          onClick={() => {
+            setError(null);
+            refreshData(['deals', 'properties', 'tasks']);
+            fetchPerformanceData();
+          }}
+        >
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+
+  // Loading placeholder
   const LoadingPlaceholder = ({ count = 3 }) => (
     <div className="space-y-4">
       {[...Array(count)].map((_, i) => (
@@ -160,6 +193,19 @@ const Dashboard = () => {
       ))}
     </div>
   );
+
+  const isInitialLoading = loadingDeals && loadingProperties && loadingTasks && deals.length === 0 && properties.length === 0 && tasks.length === 0;
+
+  // Initial loading state
+  if (isInitialLoading) {
+    return (
+      <div className="p-6 flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-16 w-16 text-nuvos-teal animate-spin mb-4" />
+        <h2 className="text-2xl font-bold mb-2">Loading your dashboard</h2>
+        <p className="text-gray-500">Fetching your real estate portfolio data...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 md:p-10 max-w-7xl mx-auto">

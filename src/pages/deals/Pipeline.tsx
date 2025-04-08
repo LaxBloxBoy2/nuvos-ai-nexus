@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { DropResult } from "react-beautiful-dnd";
-import { Search, PlusCircle, Filter, ChevronDown, Loader2 } from "lucide-react";
+import { Search, PlusCircle, Filter, ChevronDown, Loader2, AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -13,6 +13,7 @@ import { getPropertyTypeColor, getPriorityStyles, getInitials } from "./utils/de
 import KanbanView from "./components/KanbanView";
 import ListView from "./components/ListView";
 import AddDealDialog from "./components/AddDealDialog";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type DealsByStage = {
   [key: string]: Deal[];
@@ -33,12 +34,23 @@ const Pipeline = () => {
   const [selectedStage, setSelectedStage] = useState<"Screening" | "Due Diligence" | "Negotiation" | "Closing">("Screening");
   const [isFiltering, setIsFiltering] = useState(false);
   const [filterType, setFilterType] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const { user, profile } = useAuth();
   const { deals, loadingDeals, createDeal, updateDeal, refreshData } = useData();
 
   useEffect(() => {
-    refreshData(['deals']);
+    const fetchDeals = async () => {
+      try {
+        await refreshData(['deals']);
+      } catch (err) {
+        console.error("Error fetching deals:", err);
+        setError("Failed to load deals. Please refresh the page.");
+        toast.error("Failed to load deals");
+      }
+    };
+    
+    fetchDeals();
   }, []);
 
   useEffect(() => {
@@ -55,6 +67,15 @@ const Pipeline = () => {
             return acc;
           }
           
+          // Apply search query filter
+          if (searchQuery && 
+              !deal.name.toLowerCase().includes(searchQuery.toLowerCase()) && 
+              !deal.address?.toLowerCase().includes(searchQuery.toLowerCase()) &&
+              !deal.city?.toLowerCase().includes(searchQuery.toLowerCase()) &&
+              !deal.property_type?.toLowerCase().includes(searchQuery.toLowerCase())) {
+            return acc;
+          }
+          
           acc[deal.status].push(deal);
         }
         return acc;
@@ -66,8 +87,16 @@ const Pipeline = () => {
       });
       
       setDealsByStage(grouped);
+    } else if (!loadingDeals) {
+      // Reset the dealsByStage to empty arrays when no deals available
+      setDealsByStage({
+        Screening: [],
+        "Due Diligence": [],
+        Negotiation: [],
+        Closing: []
+      });
     }
-  }, [deals, isFiltering, filterType]);
+  }, [deals, isFiltering, filterType, searchQuery]);
 
   const handleDragEnd = async (result: DropResult) => {
     const { source, destination, draggableId } = result;
@@ -108,13 +137,20 @@ const Pipeline = () => {
       });
 
       // Update in database
-      const success = await updateDeal(draggableId, {
-        status: destination.droppableId as "Screening" | "Due Diligence" | "Negotiation" | "Closing"
-      });
-      
-      if (success) {
-        toast.success(`Deal moved to ${destination.droppableId}`);
-      } else {
+      try {
+        const success = await updateDeal(draggableId, {
+          status: destination.droppableId as "Screening" | "Due Diligence" | "Negotiation" | "Closing"
+        });
+        
+        if (success) {
+          toast.success(`Deal moved to ${destination.droppableId}`);
+        } else {
+          // Revert the change if update failed
+          refreshData(['deals']);
+          toast.error("Failed to update deal status");
+        }
+      } catch (err) {
+        console.error("Error updating deal:", err);
         // Revert the change if update failed
         refreshData(['deals']);
         toast.error("Failed to update deal status");
@@ -155,30 +191,35 @@ const Pipeline = () => {
       return;
     }
 
-    const dealData = {
-      name: newDeal.name,
-      address: newDeal.address,
-      property_id: "", // This would normally come from a selected property
-      city: newDeal.city,
-      state: newDeal.state,
-      property_type: newDeal.property_type,
-      price: newDeal.price,
-      cap_rate: newDeal.cap_rate,
-      irr: newDeal.irr,
-      status: newDeal.status,
-      priority: newDeal.priority,
-      team_members: [user?.id || ""],
-      notes: ""
-    };
+    try {
+      const dealData = {
+        name: newDeal.name,
+        address: newDeal.address,
+        property_id: "", // This would normally come from a selected property
+        city: newDeal.city,
+        state: newDeal.state,
+        property_type: newDeal.property_type,
+        price: newDeal.price,
+        cap_rate: newDeal.cap_rate,
+        irr: newDeal.irr,
+        status: newDeal.status,
+        priority: newDeal.priority,
+        team_members: [user?.id || ""],
+        notes: ""
+      };
 
-    const newDealId = await createDeal(dealData);
-    
-    if (newDealId) {
-      // Close dialog
-      setIsDialogOpen(false);
-      toast.success("Deal created successfully");
-      // Update deal list
-      await refreshData(['deals']);
+      const newDealId = await createDeal(dealData);
+      
+      if (newDealId) {
+        // Close dialog
+        setIsDialogOpen(false);
+        toast.success("Deal created successfully");
+        // Update deal list
+        await refreshData(['deals']);
+      }
+    } catch (err) {
+      console.error("Error creating deal:", err);
+      toast.error("Failed to create deal. Please try again.");
     }
   };
 
@@ -203,6 +244,38 @@ const Pipeline = () => {
       setFilterType(type);
     }
   };
+
+  // Error state
+  if (error) {
+    return (
+      <div className="p-6 flex flex-col items-center justify-center min-h-[60vh]">
+        <AlertCircle className="h-16 w-16 text-red-500 mb-4" />
+        <h2 className="text-2xl font-bold mb-2">Something went wrong</h2>
+        <p className="text-gray-500 mb-6">{error}</p>
+        <Button 
+          onClick={() => {
+            setError(null);
+            refreshData(['deals']);
+          }}
+        >
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+
+  // Initial loading state
+  const isInitialLoading = loadingDeals && deals.length === 0;
+  
+  if (isInitialLoading) {
+    return (
+      <div className="p-6 flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-16 w-16 text-nuvos-teal animate-spin mb-4" />
+        <h2 className="text-2xl font-bold mb-2">Loading your deals</h2>
+        <p className="text-gray-500">Fetching your real estate deals...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 md:p-8">
